@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Local Tab Studio · 本地谱房</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/vendor/package/dist/alphaTab.min.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark">♮</span>
+        <div>LOCAL TAB STUDIO<small>你的乐谱，你的节奏。</small></div>
+        <span class="version">原型 0.7</span>
+      </div>
+      <div class="header-actions">
+        <span id="saveState" role="status">正在打开…</span
+        ><button id="saveButton" class="subtle">保存</button
+        ><button id="exportXml">导出 MusicXML</button
+        ><button id="printScore">打印 / PDF ↗</button>
+      </div>
+    </header>
+    <div class="workspace">
+      <aside class="sidebar">
+        <div class="section-label">本地谱库</div>
+        <select id="projectSelect" aria-label="选择乐谱"></select>
+        <div class="two-buttons">
+          <button id="newScore">＋ 新建</button
+          ><button id="importScore">导入乐谱</button>
+        </div>
+        <input type="file" id="scoreFile" accept=".xml,.musicxml,.mxl" hidden />
+        <div class="sidebar-divider"></div>
+        <div class="section-label">乐器与调弦</div>
+        <select id="preset" aria-label="乐器预设">
+          <option value="bass5">五弦 Bass</option>
+          <option value="bass4">四弦 Bass</option>
+          <option value="guitar6">六弦 Guitar</option></select
+        ><label class="small-label" for="tuning">空弦音高 · 从粗到细</label
+        ><input id="tuning" value="B0 E1 A1 D2 G2" spellcheck="false" /><select
+          id="tuningMode"
+          aria-label="调弦时保留"
+        >
+          <option value="fret">保留弦号和品位</option>
+          <option value="pitch">保留音高，重新分配指法</option></select
+        ><button id="applyTuning" class="full-button">应用调弦</button>
+        <div class="sidebar-divider"></div>
+        <div class="section-label">小节导航 <span id="barCount"></span></div>
+        <div id="barNav" class="bar-grid" aria-label="小节导航"></div>
+        <button id="addBar" class="full-button">＋ 在末尾添加小节</button>
+        <div class="bar-actions">
+          <button id="insertBeforeBar" title="在当前小节前插入">＋前</button
+          ><button id="insertAfterBar" title="在当前小节后插入">＋后</button
+          ><button id="removeBar" title="删除当前小节，可撤销">−小节</button>
+        </div>
+        <div class="local-note">
+          <span class="status-dot"></span>文件保存在谱库电脑<br /><small
+            >MusicXML + JSON + 音频<br />可用 Git 管理整个谱库</small
+          >
+        </div>
+      </aside>
+      <main>
+        <section class="score-heading">
+          <div>
+            <div class="eyebrow">LOCAL WORKSPACE / SCORE</div>
+            <h1 id="scoreTitle">正在载入乐谱</h1>
+            <div id="scoreMeta" class="muted"></div>
+          </div>
+          <div class="view-switch">
+            <button id="prevSystem" aria-label="上一小节">←</button
+            ><span id="systemLabel">第 1 小节</span
+            ><button id="nextSystem" aria-label="下一小节">→</button>
+          </div>
+        </section>
+        <section class="transport" aria-label="播放控制">
+          <button id="play" class="play-button" aria-label="播放">▶</button
+          ><button id="toStart" class="icon-button" aria-label="回到开始">
+            ↤
+          </button>
+          <div class="track-control">
+            <label for="recording">音频来源</label
+            ><select id="recording"></select>
+          </div>
+          <div class="time-readout">
+            <span id="elapsed">0:00.000</span><span class="muted"> / </span
+            ><span id="totalTime">0:00</span>
+          </div>
+          <div class="speed-control">
+            <label for="speed">练习速度</label>
+            <div>
+              <button id="slower" aria-label="减速0.01">−</button
+              ><input
+                id="speed"
+                type="number"
+                min="0.50"
+                max="1"
+                step="0.01"
+                value="1.00"
+                aria-label="播放倍速"
+              /><span>×</span
+              ><button id="faster" aria-label="加速0.01">＋</button>
+            </div>
+          </div>
+          <label class="pitch-label"
+            ><input type="checkbox" id="preservePitch" checked />
+            保持音高</label
+          >
+        </section>
+        <section class="timeline-card">
+          <div class="timeline-top">
+            <span id="trackNote">合成预览</span
+            ><button id="addAudio" class="text-button">＋ 添加 MP3</button
+            ><input
+              type="file"
+              id="audioFile"
+              multiple
+              accept="audio/mpeg,.mp3"
+              hidden
+            />
+          </div>
+          <canvas
+            id="waveform"
+            height="86"
+            aria-label="音频波形：点击跳转，拖动同步点微调"
+          ></canvas>
+          <div class="timeline-bottom">
+            <span>点击波形跳转 · 拖动圆点微调 · 点击圆点编辑</span>
+            <button id="quickSync" class="text-button">＋ 添加同步点</button>
+            <button id="toggleSync" class="text-button">
+              同步点 <span id="anchorCount"></span> ▾
+            </button>
+          </div>
+        </section>
+        <section id="syncPanel" class="sync-panel" hidden>
+          <div class="panel-title">
+            <h2>录音与乐谱对齐</h2>
+            <button id="addAnchor">＋ 固定当前时间，选择小节</button>
+          </div>
+          <p class="muted small">
+            每个录音独立保存。零个同步点时按谱面速度预估，一个点校准偏移，多个点分段校准。
+            拍位以四分音符为单位，支持小数；最后一小节之后的第 1
+            拍代表乐谱结束。
+          </p>
+          <div id="anchorRows"></div>
+          <div class="sync-footer">
+            <select id="copyFrom" aria-label="复制哪个录音的同步点"></select
+            ><button id="copyAnchors">复制同步点</button
+            ><label
+              >整体平移
+              <input
+                id="shiftMs"
+                type="number"
+                value="0"
+                step="1"
+                aria-label="平移毫秒"
+              />
+              ms</label
+            ><button id="shiftAnchors">应用</button>
+          </div>
+        </section>
+        <section
+          id="editToolbar"
+          class="edit-toolbar"
+          aria-label="乐谱编辑工具栏"
+        ></section>
+        <section class="sheet-card">
+          <div class="sheet-toolbar">
+            <span><span class="status-dot"></span>五线谱 + TAB</span>
+            <div class="sheet-actions">
+              <select id="scoreLayout" aria-label="谱面布局">
+                <option value="horizontal" selected>横向连续</option>
+                <option value="page">分页视图</option>
+              </select>
+              <button id="undo" title="Ctrl+Z">↶ 撤销</button
+              ><button id="redo" title="Ctrl+Shift+Z">↷ 重做</button>
+            </div>
+          </div>
+          <div
+            id="scoreViewport"
+            data-layout="horizontal"
+            tabindex="0"
+            role="application"
+            aria-label="TAB 编辑区：数字输入品位，上下选弦，左右选音"
+          >
+            <div id="score"></div>
+            <div id="scoreCursor" hidden></div>
+          </div>
+          <div class="sheet-footer">
+            <span id="selectionLabel">点击谱面或下方音符进行编辑</span
+            ><span>↑ ↓ 选弦 · ← → 选音 · 数字输入品位 · 空格播放</span>
+          </div>
+        </section>
+        <section class="editor-card">
+          <div class="panel-title">
+            <h2 id="measureLabel">第 1 小节</h2>
+            <span id="measureCheck" class="muted"></span>
+          </div>
+          <div id="noteStrip" class="note-strip"></div>
+          <div class="note-editor">
+            <label
+              >弦号<select
+                id="noteString"
+                aria-label="音符弦号"
+              ></select></label
+            ><label
+              >品位<input
+                id="noteFret"
+                type="number"
+                min="0"
+                max="36"
+                value="0" /></label
+            ><button id="applyNote" class="accent">写入音符</button
+            ><span class="editor-separator"></span
+            ><label
+              >时值<select id="noteDuration">
+                <option value="4">全音符</option>
+                <option value="2">二分</option>
+                <option value="1.5">附点四分</option>
+                <option value="1">四分</option>
+                <option value="0.75">附点八分</option>
+                <option value="0.5">八分</option>
+                <option value="0.375">附点十六分</option>
+                <option value="0.25">十六分</option>
+                <option value="0.125">三十二分</option>
+              </select></label
+            ><button id="setDuration">应用时值</button
+            ><button id="splitNote">拆为两音</button>
+          </div>
+          <div class="editor-bottom">
+            <div>
+              <button id="restNote">音符 / 休止</button
+              ><button id="deadNote">X 闷音</button
+              ><button id="tieNote">连接下一音</button>
+            </div>
+            <span class="muted small"
+              >换弦输入会添加和弦音；Delete
+              只删当前弦。时值作用于整个音位，休止按钮清空整个和弦。</span
+            >
+          </div>
+        </section>
+        <footer class="page-footer">
+          LOCAL TAB STUDIO <span>无需账号 · 无云端依赖 · 版本由你决定</span>
+        </footer>
+      </main>
+    </div>
+    <audio id="audio" preload="metadata"></audio>
+    <div id="toast" role="status" hidden></div>
+    <dialog id="newDialog">
+      <form id="newForm">
+        <h2>新建乐谱</h2>
+        <label
+          >曲名<input
+            id="newTitle"
+            value="新乐谱"
+            required
+            maxlength="120" /></label
+        ><label
+          >乐器<select id="newPreset">
+            <option value="bass5">五弦 Bass</option>
+            <option value="bass4">四弦 Bass</option>
+            <option value="guitar6">六弦 Guitar</option>
+          </select></label
+        ><label
+          >初始小节数<input
+            id="newBars"
+            type="number"
+            min="1"
+            max="200"
+            value="8"
+            step="1"
+            required
+        /></label>
+        <label
+          >速度（♩ / 分钟）<input
+            id="newTempo"
+            type="number"
+            min="20"
+            max="300"
+            step="0.01"
+            value="120"
+            required
+        /></label>
+        <label
+          >初始拍号<span class="new-meter"
+            ><input
+              id="newBeats"
+              aria-label="新谱拍号分子"
+              type="number"
+              min="1"
+              max="32"
+              step="1"
+              value="4"
+              required
+            /><span>/</span
+            ><select id="newUnit" aria-label="新谱拍号分母">
+              <option>1</option>
+              <option>2</option>
+              <option selected>4</option>
+              <option>8</option>
+              <option>16</option>
+            </select></span
+          ></label
+        >
+        <p class="muted small">
+          速度以四分音符为单位；例如 6/8 的附点四分音符 = 80，对应这里 ♩ = 120。
+        </p>
+        <div class="dialog-actions">
+          <button type="button" id="cancelNew">取消</button
+          ><button type="submit" id="createScore" class="accent">创建</button>
+        </div>
+      </form>
+    </dialog>
+    <section
+      id="syncPopover"
+      class="sync-popover"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="syncTitle"
+      hidden
+    >
+      <form id="syncForm">
+        <div class="panel-title">
+          <h2 id="syncTitle">添加同步点</h2>
+          <button type="button" id="syncClose" aria-label="取消同步点">
+            ×
+          </button>
+        </div>
+        <p id="syncRecording" class="muted small"></p>
+        <label
+          >录音时间（已暂停）<input
+            id="syncTime"
+            type="text"
+            inputmode="decimal"
+            placeholder="00:14.157"
+            required
+            autocomplete="off"
+        /></label>
+        <label
+          >对应小节<input
+            id="syncMeasure"
+            type="number"
+            min="1"
+            step="1"
+            required
+        /></label>
+        <details id="syncBeatDetails">
+          <summary>小节内拍位 · 默认第 1 拍</summary>
+          <label
+            >拍位<input
+              id="syncBeat"
+              type="number"
+              min="1"
+              step="any"
+              value="1"
+              required
+          /></label>
+          <p class="muted small">
+            以四分音符为 1 拍，可填小数。展开后也可点选具体音符。
+          </p>
+        </details>
+        <p class="muted small">
+          时间已经固定。现在可输入小节号，或点击谱面选位置；录音不会跟着跳转。
+        </p>
+        <p id="syncDraftHint" class="small" role="status"></p>
+        <p id="syncError" class="sync-error small" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" id="syncRemove" hidden>移除此点</button
+          ><button type="button" id="syncCancel">取消</button
+          ><button type="submit" id="syncSave" class="accent">
+            保存同步点
+          </button>
+        </div>
+      </form>
+    </section>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

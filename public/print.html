@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>乐谱打印</title>
+    <script src="/vendor/package/dist/alphaTab.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        background: #ecefe9;
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+        color: #203b3a;
+      }
+      .toolbar {
+        position: sticky;
+        top: 0;
+        background: #fff;
+        padding: 15px 25px;
+        z-index: 10;
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      button {
+        padding: 10px 18px;
+        background: #176c61;
+        color: #fff;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.4;
+      }
+      #sheet {
+        box-sizing: border-box;
+        width: 186mm;
+        background: #fff;
+        margin: 24px auto;
+        padding: 0;
+      }
+      .at-surface {
+        width: auto !important;
+        height: auto !important;
+      }
+      .at-surface > div {
+        position: relative !important;
+        left: auto !important;
+        top: auto !important;
+        break-inside: avoid;
+      }
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+      @media print {
+        body {
+          background: white;
+        }
+        .toolbar {
+          display: none;
+        }
+        #sheet {
+          margin: 0;
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <span id="status">正在排版完整乐谱…</span
+      ><button id="print" disabled>打印 / 另存为 PDF</button>
+    </div>
+    <div id="sheet"></div>
+    <script type="module">
+      import { ScoreDocument, applyDisplaySettings } from "./editor-model.js";
+      const id = new URLSearchParams(location.search).get("project");
+      try {
+        const r = await fetch("/api/project/" + encodeURIComponent(id));
+        if (!r.ok) throw Error("项目不存在");
+        const data = await r.json();
+        document.title = data.project.title;
+        const api = new alphaTab.AlphaTabApi(document.getElementById("sheet"), {
+          core: {
+            engine: "svg",
+            useWorkers: false,
+            enableLazyLoading: false,
+            fontDirectory: location.origin + "/vendor/package/dist/font/",
+          },
+          display: {
+            layoutMode: alphaTab.LayoutMode.Page,
+            startBar: 1,
+            barCount: -1,
+            barsPerRow: 4,
+            scale: 0.85,
+          },
+          player: { playerMode: alphaTab.PlayerMode.Disabled },
+          notation: {
+            rhythmMode: alphaTab.TabRhythmMode.ShowWithBars,
+            rhythmHeight: 25,
+          },
+        });
+        const score = alphaTab.importer.ScoreLoader.loadScoreFromBytes(
+          new TextEncoder().encode(data.xml),
+          api.settings,
+        );
+        applyDisplaySettings(score, new ScoreDocument(data.xml));
+        api.postRenderFinished.on(() => {
+          document.getElementById("status").textContent =
+            data.project.title + " · 完整乐谱 · A4";
+          document.getElementById("print").disabled = false;
+        });
+        api.renderScore(score, [0]);
+        document.getElementById("print").onclick = () => window.print();
+      } catch (e) {
+        document.getElementById("status").textContent = e.message;
+      }
+    </script>
+  </body>
+</html>
