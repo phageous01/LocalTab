@@ -6,6 +6,7 @@ import {
   playbackEvents,
 } from "./editor-model.js";
 import { createToolbar } from "./toolbar.js";
+import { setupPublishing } from "./publish.js";
 import {
   RecordingTimeMap,
   SyncDraft,
@@ -1180,6 +1181,10 @@ function setup() {
     flushSave()
       .then(() => toast("已保存到本地谱库"))
       .catch((e) => toast(e.message, true));
+  setupPublishing({
+    getProject: () => ({ id: projectId, revision, title: project?.title || "" }),
+    flushSave, request, pause, toast, hasDraft: () => !!syncDraft,
+  });
   $("play").onclick = () => (playing ? pause() : play());
   $("toStart").onclick = () => {
     pause();
@@ -1546,6 +1551,7 @@ function setup() {
   };
   document.addEventListener("keydown", (e) => {
     if (!model) return;
+    if ($("publishDialog").open) return;
     const field = e.target.closest(
       'input,select,textarea,[contenteditable="true"]',
     );

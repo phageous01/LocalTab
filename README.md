@@ -7,7 +7,7 @@ align recordings to the score, and slow down playback while transcribing. Scores
 audio and synchronization points stay on the computer running the server.
 No Flat account or cloud service is required.
 
-**Prototype 0.7.0.** The application UI is primarily Chinese; the instructions below
+**Prototype 0.8.0.** The application UI is primarily Chinese; the instructions below
 explain its controls in English. English and Chinese documentation are provided.
 
 ## Features
@@ -23,11 +23,12 @@ explain its controls in English. English and Chinese documentation are provided.
 - Horizontal scrolling by default; playback follows the current measure.
 - MusicXML/MXL import, MusicXML export, and PDF through browser printing.
 - Local autosave, previous-version backups, and access over a home LAN.
+- Publish MusicXML and an automatically generated PDF to a public GitHub score library.
 
 ## Installation and startup
 
 The server needs **Python 3.10+**; clients need a modern browser. Chrome and Edge
-are the primary targets. Node.js is only needed for tests. No npm install, build
+are the primary targets. Node.js is only needed for tests. Publishing additionally needs GitHub CLI, the optional Python PDF dependency and Chrome/Edge (see below). No npm install, build
 step, database or CDN is required: libraries and fonts are included in `vendor/`.
 
 Download and extract **Code → Download ZIP** on GitHub, or:
@@ -171,8 +172,8 @@ saves are rejected. Export unsaved work before reloading after a conflict.
 
 This code repository excludes personal libraries, audio, logs and local settings.
 Public MusicXML lives separately in [LocalTab-Scores](https://github.com/phageous01/LocalTab-Scores).
-Publishing there is a separate Git operation; saving in LocalTab does **not** push
-to GitHub automatically.
+Use **发布 / Publish** to publish explicitly. Ordinary saving still does **not** push
+to GitHub. See [publishing setup and usage](docs/PUBLISHING.md).
 
 ## Prototype limits
 

@@ -1,6 +1,6 @@
 {
   "name": "local-tab-studio",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Offline-first bass and guitar tablature editor with per-recording MP3 synchronization",
   "license": "MIT",
   "private": true,

@@ -5,7 +5,7 @@
 LocalTab 是面向贝斯和吉他的本地 TAB 编辑器：编辑 MusicXML、把多个录音与乐谱对齐，
 放慢播放来记谱和练习。乐谱、音频和同步点都保存在运行服务的电脑上，不依赖 Flat 账号或云服务。
 
-**当前为 0.7.0 原型。** 软件界面以中文为主，同时提供中英文项目说明。
+**当前为 0.8.0 原型。** 软件界面以中文为主，同时提供中英文项目说明。
 
 ## 功能
 
@@ -19,6 +19,7 @@ LocalTab 是面向贝斯和吉他的本地 TAB 编辑器：编辑 MusicXML、把
 - 默认横向滚动，播放时随当前小节移动视图。
 - 导入 MusicXML/MXL，导出 MusicXML，通过浏览器打印为 PDF。
 - 本地自动保存、旧版本备份，以及局域网访问。
+- 将 MusicXML 和自动生成的 PDF 一起发布到 GitHub 公开曲谱库。
 
 ## 安装与启动
 
@@ -154,8 +155,8 @@ LocalTab/
 多个窗口编辑不等于实时协作；检测到保存冲突时会拒绝覆盖，请先导出未保存的内容，再重新加载。
 
 代码仓库忽略个人谱库、录音、日志及本地配置。公开 MusicXML 放在独立的
-[LocalTab-Scores](https://github.com/phageous01/LocalTab-Scores)。发布到 GitHub 是单独的 Git 操作，
-在软件中保存**不会自动上传**。
+[LocalTab-Scores](https://github.com/phageous01/LocalTab-Scores)。点击 **发布 / Publish** 可发布到公开库，
+普通“保存”仍**不会自动上传**。详见[发布设置与使用方式](docs/PUBLISHING.zh-CN.md)。
 
 ## 原型限制
 

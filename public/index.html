@@ -12,15 +12,34 @@
       <div class="brand">
         <span class="brand-mark">♮</span>
         <div>LOCAL TAB STUDIO<small>你的乐谱，你的节奏。</small></div>
-        <span class="version">原型 0.7</span>
+        <span class="version">原型 0.8</span>
       </div>
       <div class="header-actions">
         <span id="saveState" role="status">正在打开…</span
         ><button id="saveButton" class="subtle">保存</button
         ><button id="exportXml">导出 MusicXML</button
-        ><button id="printScore">打印 / PDF ↗</button>
+        ><button id="printScore">打印 / PDF ↗</button
+        ><button id="publishScore" class="publish-button">发布 / Publish ↗</button>
       </div>
     </header>
+    <dialog id="publishDialog" aria-labelledby="publishTitle">
+      <h2 id="publishTitle">发布到公开曲谱库</h2>
+      <p id="publishDestination" class="muted"></p>
+      <p>发布 MusicXML 和分页 PDF，公开目录会同步更新。再次发布沿用同一个曲谱链接。</p>
+      <p id="publishProgress" role="status" aria-live="polite"></p>
+      <a id="publishPreviewLink" target="_blank" rel="noopener" hidden>打开 PDF 预览 ↗</a>
+      <iframe id="publishPreview" title="待发布的 PDF 预览" hidden></iframe>
+      <div id="publishResult" hidden>
+        <a id="publishedPage" target="_blank" rel="noopener">公开曲谱页面 ↗</a>
+        <a id="publishedPdf" target="_blank" rel="noopener">PDF ↗</a>
+        <a id="publishedXml" target="_blank" rel="noopener">MusicXML ↗</a>
+      </div>
+      <div class="dialog-actions">
+        <button id="publishClose" type="button" class="subtle">关闭</button>
+        <button id="publishRetry" type="button" hidden>重新生成预览</button>
+        <button id="publishConfirm" type="button" disabled>发布到公开库</button>
+      </div>
+    </dialog>
     <div class="workspace">
       <aside class="sidebar">
         <div class="section-label">本地谱库</div>

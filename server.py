@@ -4,6 +4,7 @@ from pathlib import Path
 from urllib.parse import urlparse, unquote, parse_qs
 import argparse, base64, hashlib, io, json, mimetypes, os, re, secrets, socket, threading, time, uuid, webbrowser, zipfile
 import xml.etree.ElementTree as ET
+from publishing import Publisher
 
 ROOT=Path(__file__).resolve().parent
 LIBRARY=ROOT/'library'
@@ -16,6 +17,7 @@ class LocalTabHTTPServer(ThreadingHTTPServer):
     allow_reuse_address = os.name != 'nt'
     def __init__(self, *args, **kwargs):
         self.allowed_hostnames = {'localhost', socket.gethostname().lower(), socket.getfqdn().lower()}
+        self.publisher = Publisher(ROOT)
         super().__init__(*args, **kwargs)
     def server_bind(self):
         if os.name == 'nt':
@@ -98,7 +100,13 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed(): return
         path=unquote(urlparse(self.path).path)
         try:
-            if path=='/api/session': return self.json(200,{'app':'local-tab-studio','version':'0.7.0','token':TOKEN})
+            if path=='/api/session': return self.json(200,{'app':'local-tab-studio','version':'0.8.0','token':TOKEN})
+            if path.startswith('/api/publish/status/'):
+                folder=self.folder(path.split('/')[-1])
+                return self.json(200,self.server.publisher.status(folder.name))
+            if path.startswith('/api/publish/snapshot/'):
+                draft=self.server.publisher.draft(path.split('/')[-1])
+                return self.json(200,{'xml':draft['xml'],'project':{'title':draft['info']['title']}})
             if path=='/api/projects':
                 items=[]
                 for folder in sorted(LIBRARY.iterdir()):
@@ -110,7 +118,10 @@ class Handler(BaseHTTPRequestHandler):
                 with LOCK: data=read_project(self.folder(path.split('/')[-1]))
                 return self.json(200,data)
             roots={'public':ROOT/'public','vendor':ROOT/'vendor','library':LIBRARY}
-            if path.startswith('/vendor/'): base=roots['vendor']; rel=path[8:]
+            if path.startswith('/api/publish/preview/'):
+                ident=path.split('/')[-1].removesuffix('.pdf')
+                base=self.server.publisher.draft_path(ident); rel='score.pdf'
+            elif path.startswith('/vendor/'): base=roots['vendor']; rel=path[8:]
             elif path.startswith('/library/'):
                 base=roots['library']; rel=path[9:]
                 if any(p.startswith('.') for p in Path(rel).parts): raise ValueError('无效路径')
@@ -170,6 +181,23 @@ class Handler(BaseHTTPRequestHandler):
                 (folder/'audio').mkdir(exist_ok=True); (folder/'audio'/filename).write_bytes(content)
                 return self.json(201,{'id':uuid.uuid4().hex,'file':'audio/'+filename,'name':Path(name).stem})
             data=json.loads(self.body())
+            if path.startswith('/api/publish/prepare/'):
+                folder=self.folder(path.split('/')[-1])
+                with LOCK:
+                    saved=read_project(folder)
+                    if data.get('revision')!=saved['revision']:
+                        return self.json(409,{'error':'乐谱已在其他窗口更改，请重新加载后再发布。'})
+                host=self.server.server_address[0]
+                base_url=f'http://{("127.0.0.1" if host=="0.0.0.0" else host)}:{self.server.server_port}'
+                return self.json(201,self.server.publisher.prepare(folder.name,saved,base_url))
+            if path.startswith('/api/publish/commit/'):
+                folder=self.folder(path.split('/')[-1])
+                ident=data.get('draftId','')
+                with LOCK:
+                    draft=self.server.publisher.draft(ident)
+                    if draft['projectId']!=folder.name: raise ValueError('预览与当前乐谱不匹配。')
+                    saved=read_project(folder)
+                    return self.json(200,self.server.publisher.publish(ident,saved['revision']))
             if path=='/api/import':
                 raw=base64.b64decode(data['data'])
                 if raw[:2]==b'PK':

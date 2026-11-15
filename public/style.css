@@ -888,6 +888,14 @@ dialog select {
 [hidden] {
   display: none !important;
 }
+#publishDialog { width: min(860px, calc(100vw - 48px)); }
+#publishDialog h2 { margin-top: 0; }
+#publishPreview { width: 100%; height: min(48vh, 480px); border: 1px solid var(--line); margin-top: 12px; border-radius: 6px; }
+#publishResult { display: flex; flex-wrap: wrap; gap: 20px; padding: 15px 0; }
+#publishProgress { min-height: 1.6em; font-weight: 600; }
+#publishDestination { overflow-wrap: anywhere; }
+.publish-error { color: #b04c3f; }
+.publish-button { border-color: #176c61; color: #176c61; font-weight: 650; }
 @media (max-width: 1100px) {
   .app-header {
     padding: 0 18px;

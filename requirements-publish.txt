@@ -1,0 +1,2 @@
+# Optional: only required for automatic PDF export / GitHub publishing.
+playwright==1.65.2

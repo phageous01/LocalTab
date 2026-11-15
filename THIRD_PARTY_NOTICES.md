@@ -28,3 +28,9 @@ TinySoundFont、SFZero 等集成组件的声明保留在原发行包中；字体
 Files in the separate LocalTab-Scores repository have their own rights context;
 this software license does not grant rights to third-party compositions or recordings.
 独立 LocalTab-Scores 仓库的乐谱不自动适用本软件的 MIT 许可证。
+
+Optional publishing installs [Playwright for Python](https://github.com/microsoft/playwright-python)
+(Apache-2.0) and its dependencies from PyPI. These are not vendored in this repository.
+The system Chrome/Edge browser and GitHub CLI are separately installed tools.
+可选发布功能从 PyPI 安装 Playwright for Python（Apache-2.0）及其依赖；
+这些依赖不随本仓库分发。Chrome/Edge 与 GitHub CLI 为独立安装的工具。

@@ -9,6 +9,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 import zipfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -62,6 +63,37 @@ class ServerTests(unittest.TestCase):
             duplicate = server.LocalTabHTTPServer(('127.0.0.1', self.http.server_port), server.Handler)
             duplicate.server_close()
 
+    def test_publish_preview_endpoints_are_revision_checked_and_exclude_private_metadata(self):
+        ident = self.create()
+        saved = json.loads(self.request('GET', '/api/project/' + ident)[2])
+        path = '/api/publish/prepare/' + ident
+        self.assertEqual(self.request('POST', path, {'revision': saved['revision']}, token=False)[0], 403)
+        self.assertEqual(self.request('POST', path, {'revision': 'old'})[0], 409)
+        from publishing import write_json
+        publisher = self.http.publisher
+        write_json(server.ROOT / '.local/publish.json', {'repository': 'test/scores'})
+        def render(draft_id, base):
+            self.assertEqual(base, f'http://127.0.0.1:{self.http.server_port}')
+            (publisher.draft_path(draft_id) / 'score.pdf').write_bytes(b'%PDF-1.7\n' + b'example' * 100)
+        with patch.object(publisher, 'render_pdf', side_effect=render):
+            status, _, body = self.request('POST', path, {'revision': saved['revision']})
+        self.assertEqual(status, 201)
+        draft = json.loads(body)
+        status, headers, pdf = self.request('GET', draft['previewUrl'])
+        self.assertEqual((status, headers['Content-Type']), (200, 'application/pdf'))
+        self.assertTrue(pdf.startswith(b'%PDF-'))
+        snapshot = json.loads(self.request('GET', '/api/publish/snapshot/' + draft['draftId'])[2])
+        self.assertEqual(set(snapshot), {'xml', 'project'})
+        self.assertEqual(set(snapshot['project']), {'title'})
+        self.assertNotIn('token', json.dumps(snapshot))
+        self.assertEqual(self.request('GET', '/api/publish/preview/..%2Fstate.json.pdf')[0], 400)
+        saved['project']['title'] = 'A newer edit'
+        self.assertEqual(self.request('PUT', '/api/project/' + ident, saved)[0], 200)
+        with patch.object(publisher, 'api') as api:
+            status, _, body = self.request('POST', '/api/publish/commit/' + ident, {'draftId': draft['draftId']})
+        self.assertEqual(status, 400)
+        api.assert_not_called()
+
     def test_create_all_instruments_and_save_with_conflict_backup(self):
         for strings in (4,5,6):
             ident = self.create(strings)
@@ -96,7 +128,7 @@ class ServerTests(unittest.TestCase):
                 status, _, body = self.request('GET', '/api/session', headers={'Host': host}, token=False)
                 self.assertEqual(status, 200)
                 session = json.loads(body)
-                self.assertEqual(session['version'], '0.7.0')
+                self.assertEqual(session['version'], '0.8.0')
                 headers = {'Host': host, 'Origin': f'http://{host}', 'X-Local-Token': session['token']}
                 status, _, body = self.request('POST', '/api/new', {'title': 'LAN score', 'beats': 6, 'unit': 8}, headers, token=False)
                 self.assertEqual(status, 201)

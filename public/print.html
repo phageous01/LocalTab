@@ -76,9 +76,13 @@
     <div id="sheet"></div>
     <script type="module">
       import { ScoreDocument, applyDisplaySettings } from "./editor-model.js";
-      const id = new URLSearchParams(location.search).get("project");
+      const params = new URLSearchParams(location.search);
+      const id = params.get("project"), draft = params.get("draft");
+      window.localTabPrintState = { ready: false };
       try {
-        const r = await fetch("/api/project/" + encodeURIComponent(id));
+        const r = await fetch(draft
+          ? "/api/publish/snapshot/" + encodeURIComponent(draft)
+          : "/api/project/" + encodeURIComponent(id));
         if (!r.ok) throw Error("项目不存在");
         const data = await r.json();
         document.title = data.project.title;
@@ -107,14 +111,22 @@
           api.settings,
         );
         applyDisplaySettings(score, new ScoreDocument(data.xml));
-        api.postRenderFinished.on(() => {
+        api.error.on((e) => {
+          window.localTabPrintState = { error: String(e.message || e) };
+          document.getElementById("status").textContent = window.localTabPrintState.error;
+        });
+        api.postRenderFinished.on(async () => {
+          await document.fonts.ready;
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           document.getElementById("status").textContent =
             data.project.title + " · 完整乐谱 · A4";
           document.getElementById("print").disabled = false;
+          window.localTabPrintState = { ready: true, measures: score.masterBars.length };
         });
         api.renderScore(score, [0]);
         document.getElementById("print").onclick = () => window.print();
       } catch (e) {
+        window.localTabPrintState = { error: e.message };
         document.getElementById("status").textContent = e.message;
       }
     </script>
