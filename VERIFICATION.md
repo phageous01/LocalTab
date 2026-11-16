@@ -127,3 +127,30 @@ realistic synthesized guitar techniques.
 复制粘贴覆盖纯倚音片段、以倚音结尾并接回原音尾部、和弦与连线、跨小节滑音端点及拍号截短。不支持的额外时间／小节末尾倚音结构保持查看模式且不重写。
 
 在隔离谱库的原创四小节测试谱上，实际验证了工具栏／G 添加、立即输入品位、斜线切换、删除、撤销、保存重开、同音滑入加滑出及中英文标签。保存后的 XML 中倚音没有 duration 元素，滑音为标准奏法元素；通过截图检查编辑器及 A4 打印视图，后者与 PDF 导出共用显示映射。没有发布公开曲谱或修改用户乐谱；本次验证不代表其他软件的排版一致，也不保证真实的吉他合成奏法音色。
+
+## Practice start and measure resume / 练习起点与小节续播
+
+**83 JavaScript tests and 28 Python HTTP/publishing tests passed.** Six new
+regressions cover independent practice/paused positions, note-level selection
+snapping to measure heads, mixed meters, exact continuation for speed changes,
+initial/end positions, and practice-start remapping after bar insertion/deletion.
+
+An isolated 24-measure original study and generated WAV recording were exercised
+in the in-app browser. Selecting the fifth note still sought to its measure head.
+Starting at 13, following to 23 and pausing retained practice start 13. Mouse Play
+returned to the synchronized beginning of 23; Space returned to 13, including
+when the play button had keyboard focus. Synth preview also restarted at 13.
+The sync-point dialog retained the fractional paused timestamp. Switching UI
+language retained the start marker and current measure. The screenshot shows
+the gold practice marker at 13 and paused measure 23. User scores were not edited;
+this test used WAV through the recording path, not a separate MP3 decoding audit.
+
+**83 项 JavaScript 与 28 项 Python HTTP/发布测试通过。** 新增 6 项回归验证覆盖
+练习起点与暂停位置分离、音符位置回到小节头、混合拍号、调速时精确续播、初始／终点位置，
+以及增删小节后跟随原练习起点。
+
+在隔离谱库的原创 24 小节测试谱及生成的 WAV 录音上，实际验证了：选择第五个音符仍跳到
+小节头；从 13 播到 23 暂停后起点仍为 13；鼠标播放回到 23 的同步起始时间；空格回到 13，
+播放按钮获得键盘焦点时也一致；合成预览也从 13 重播。同步点窗口保留了暂停时的精确小数
+时间戳，切换中英文后起点与当前小节不变。截图检查了 13 的金色起点标记和 23 的暂停位置。
+没有编辑用户乐谱；录音测试使用 WAV，未额外审计 MP3 解码。

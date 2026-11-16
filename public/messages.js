@@ -1,5 +1,9 @@
 // Chinese source messages are the stable keys; values are their English translations.
 export const messages = {
+  "空格起点：第 1 小节": "Space start: measure 1",
+  "空格起点：第 {0} 小节": "Space start: measure {0}",
+  "空格从练习起点的小节头重播；播放按钮从暂停小节的小节头继续。": "Space restarts at the practice measure; the play button resumes from the paused measure's beginning.",
+  "点击播放：从暂停所在小节开头继续。空格：从练习起点重播。": "Click Play: resume from the paused measure's beginning. Space: restart from the practice measure.",
   "添加倚音": "Add grace note",
   "倚音斜线": "Grace slash",
   "在当前音前添加倚音，再输入品位 · G": "Add a grace note before this note, then type its fret · G",

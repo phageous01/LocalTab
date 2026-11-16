@@ -125,7 +125,8 @@ it does not run this Python service.
    Type two digits promptly for frets 10–36. To form a chord, stay at the same
    position, switch strings, and enter more frets. Chord tones share a duration.
    Select durations and techniques in the toolbar.
-6. **Space** plays/pauses. Set **Practice speed**, for example 0.75. Pause
+6. **Space** pauses or restarts from your practice measure. Click **Play** to
+   resume from the paused measure instead. Set **Practice speed**, for example 0.75. Pause
    whenever you want to edit. Choose **Smooth follow** for continuous scrolling or
    **Note by note** for measure-based following.
 7. Wait for the saved indicator or click **Save**. Changes autosave after a
@@ -141,6 +142,26 @@ The score uses the full available page width, with compact controls above it.
 The waveform starts collapsed; playback and sync-point controls remain available.
 Use **Zoom** above the score to choose 75%–200% (default 110%); the browser
 remembers your choice. Zoom changes only the editor view, not exported scores or PDFs.
+
+### Practice start and resume
+
+Click a note or use measure navigation / Left and Right to choose a practice
+start. Playback starts at that measure's beginning, even if you selected its
+fifth note. **Space start: measure …** above the score and a gold underline in
+measure navigation mark the practice start; playback following does not change it.
+
+| Control | While paused | While playing |
+| --- | --- | --- |
+| **Space** | Restart from the practice measure's beginning | Pause |
+| **Play / Pause** button | Resume from the paused measure's beginning | Pause |
+
+For example, choose measure 13, play to measure 23, and pause. Space starts again
+at measure 13; clicking Play starts at measure 23. Pressing Space twice during
+playback pauses and restarts the passage. Opening a score resets the practice
+start to measure 1. Both recordings and synthesized preview follow these rules.
+The exact paused timestamp remains available for synchronization; it is only
+snapped to a measure boundary when you resume. Changing speed during playback
+continues from the exact position.
 
 ### Select, copy and paste
 
@@ -201,7 +222,7 @@ replacement modes; protected mode refuses to overwrite following notes.
 | `Delete` / `Backspace` | Remove selected string's note, preserving other chord tones |
 | `R` | Convert the whole position to/from a rest |
 | `Alt+Enter` | Insert a measure after the current one |
-| `Space` | Play / pause |
+| `Space` | Pause / restart from the practice measure |
 | `Ctrl/Cmd+S` | Save |
 | `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` | Undo / redo |
 

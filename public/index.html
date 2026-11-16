@@ -159,6 +159,7 @@
           <div>
             <h1 id="scoreTitle">正在载入乐谱</h1>
             <div id="scoreMeta" class="muted"></div>
+            <span id="practiceStart" class="practice-start-label" title="空格从练习起点的小节头重播；播放按钮从暂停小节的小节头继续。">空格起点：第 1 小节</span>
           </div>
           <div class="view-switch">
             <button id="prevSystem" aria-label="上一小节">←</button
@@ -167,7 +168,7 @@
           </div>
         </section>
         <section class="transport" aria-label="播放控制">
-          <button id="play" class="play-button" aria-label="播放">▶</button
+          <button id="play" class="play-button" aria-label="播放" title="点击播放：从暂停所在小节开头继续。空格：从练习起点重播。">▶</button
           ><button id="toStart" class="icon-button" aria-label="回到开始">
             ↤
           </button>

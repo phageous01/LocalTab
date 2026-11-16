@@ -10,6 +10,7 @@ import { createToolbar } from "./toolbar.js";
 import { setupPublishing } from "./publish.js";
 import { copyNotes, pasteNotes } from "./clipboard.js";
 import { playheadX, followScrollPosition } from "./playhead.js";
+import { PlaybackResume } from "./playback-resume.js";
 import { filterProjects, librarySortPreference, LIBRARY_PREFERENCE_KEY } from "./library.js";
 import {
   RecordingTimeMap,
@@ -60,6 +61,8 @@ let peaks = [],
   keyDigits = "",
   keyTime = 0;
 const audio = $("audio");
+const playbackResume = new PlaybackResume();
+let startingPlayback = false, playRequest = 0;
 let toolbar,
   selectedString = 1,
   rangeStart = null,
@@ -229,7 +232,7 @@ function finishDragSelection() {
   dragSelection = null;
   $("scoreViewport").classList.remove("selecting");
   if (active && model) {
-    seekQ(model.event(mi, ni).q);
+    seekQ(model.measures[mi].q);
     focusEditor();
   }
 }
@@ -357,6 +360,7 @@ function snapshot() {
     recordingId,
     activePartId: model.activePartId,
     visiblePartIds: [...visiblePartIds],
+    practiceStart: playbackResume.startMeasure,
   };
 }
 function mutate(fn, { render = true, sync = false } = {}) {
@@ -373,6 +377,7 @@ function mutate(fn, { render = true, sync = false } = {}) {
     if (undoStack.length > 80) undoStack.shift();
     redoStack = [];
     model.refresh();
+    playbackResume.select(model, playbackResume.startMeasure);
     mi = Math.min(mi, model.measures.length - 1);
     ni = Math.min(ni, model.measures[mi].notes.length - 1);
     dirty();
@@ -388,6 +393,7 @@ function mutate(fn, { render = true, sync = false } = {}) {
     ni = before.ni;
     selectedString = before.selectedString;
     rangeStart = before.rangeStart;
+    playbackResume.select(model, before.practiceStart);
     toast(e.message, true);
     updateUI();
     return false;
@@ -412,6 +418,7 @@ function history(back) {
   ni = s.ni;
   selectedString = s.selectedString ?? 1;
   rangeStart = s.rangeStart ?? null;
+  playbackResume.select(model, s.practiceStart ?? 0);
   dirty();
   updateUI();
   renderScore();
@@ -496,6 +503,7 @@ async function loadProject(id) {
   rangeStart = null;
   dragSelection = null;
   cursorQ = 0;
+  playbackResume.reset();
   followedBar = -1;
   followScrollLeft = null;
   $("scoreViewport").scrollTo({ left: 0, top: 0, behavior: "instant" });
@@ -572,6 +580,7 @@ function switchPart(id, render = true) {
   const q = currentQ();
   if (playing && !recording()) pause();
   model.selectPart(id);
+  playbackResume.select(model, playbackResume.startMeasure);
   rangeStart = null;
   dragSelection = null;
   keyDigits = "";
@@ -680,6 +689,9 @@ function updateSelection() {
         : i >= systemStart - 1 && i < systemStart + 3
           ? "in-view"
           : "";
+  for (const [i, b] of [...$("barNav").children].entries())
+    b.classList.toggle("practice-start", i === playbackResume.startMeasure);
+  $("practiceStart").textContent = tr`空格起点：第 ${playbackResume.startMeasure + 1} 小节`;
   $("systemLabel").textContent = horizontalLayout()
     ? tr`第 ${mi + 1} / ${model.measures.length} 小节`
     : `${systemStart} — ${Math.min(systemStart + 3, model.measures.length)}`;
@@ -719,6 +731,7 @@ function select(measure, note, seek = false, extend = false) {
   keyTime = 0;
   mi = measure;
   ni = Math.min(note, model.measures[mi].notes.length - 1);
+  if (seek && !syncDraft && !extend) playbackResume.select(model, mi);
   const event = model.event(mi, ni);
   selectedString = Math.max(1, Math.min(selectedString, model.tuning.length));
   const start = horizontalLayout() ? mi + 1 : Math.floor(mi / 4) * 4 + 1;
@@ -737,7 +750,7 @@ function select(measure, note, seek = false, extend = false) {
       fillSyncLocation();
       return;
     }
-    seekQ(model.event(mi, ni).q);
+    seekQ(model.measures[mi].q);
     focusEditor();
   }
 }
@@ -853,6 +866,7 @@ function structuralEdit(fn, position = 0) {
       oldMi = mi;
     fn(model, mi);
     model.refresh();
+    playbackResume.remap(previous, model);
     for (const recording of project.recordings) {
       const next = remapAnchors(
         recording.anchors,
@@ -965,7 +979,7 @@ function seekQ(q) {
   if (recording()) {
     const t = recordingMap().toTime(cursorQ);
     audio.currentTime = Math.max(0, Math.min(durationSeconds(), t));
-  } else if (resumeSynth) play();
+  } else if (resumeSynth) play("exact");
   drawWave();
 }
 function getContext() {
@@ -1021,27 +1035,32 @@ function scheduleSynth() {
     };
   }
 }
-async function play() {
+async function play(source = "paused") {
+  if (!model || playing || startingPlayback) return;
+  const requestId = ++playRequest;
   try {
     if (syncDraft) {
       toast(tr("请先保存或取消同步点，录音时间已固定。"));
       return;
     }
+    startingPlayback = true;
     followedBar = -1;
     followScrollLeft = null;
     smoothScrollPosition = null;
+    seekQ(playbackResume.position(model, cursorQ, source));
+    selectAtQ(cursorQ);
     if (recording()) {
-      if (audio.ended || audio.currentTime >= durationSeconds() - 0.001)
-        audio.currentTime = 0;
       alignAudioCursor();
-    } else if (cursorQ >= model.totalQ - 0.001) seekQ(0);
+    }
     if (recording()) {
       audio.playbackRate = rate;
       audio.preservesPitch = $("preservePitch").checked;
       await audio.play();
+      if (requestId !== playRequest) return;
       playing = true;
     } else {
       await getContext().resume();
+      if (requestId !== playRequest) return;
       prepareSynth();
       synthQ = cursorQ;
       synthEpoch = audioContext.currentTime;
@@ -1054,11 +1073,16 @@ async function play() {
     $("play").setAttribute("aria-label", tr("暂停"));
     revealSelection(true);
   } catch (e) {
-    toast(tr("无法播放：") + e.message, true);
+    if (requestId === playRequest) toast(tr("无法播放：") + e.message, true);
+  } finally {
+    if (requestId === playRequest) startingPlayback = false;
   }
 }
 function pause() {
-  if (playing) cursorQ = currentQ();
+  const wasPlaying = playing;
+  if (wasPlaying) cursorQ = currentQ();
+  playRequest++;
+  startingPlayback = false;
   playing = false;
   smoothScrollPosition = null;
   followedBar = -1;
@@ -1073,7 +1097,10 @@ function pause() {
   synthNodes = [];
   $("play").textContent = "▶";
   $("play").setAttribute("aria-label", tr("播放"));
-  if (model) moveCursor();
+  if (model) {
+    if (wasPlaying) selectAtQ(cursorQ);
+    else moveCursor();
+  }
 }
 async function switchRecording(id, q = currentQ()) {
   pause();
@@ -1136,7 +1163,7 @@ function setRate(value, normalize = true) {
   rate = Math.round(Math.max(0.5, Math.min(1, Number(value) || 1)) * 100) / 100;
   if (normalize) $("speed").value = rate.toFixed(2);
   audio.playbackRate = rate;
-  if (was) play();
+  if (was) play("exact");
 }
 function qLocation(q) {
   return qToLocation(model, q);
@@ -1731,7 +1758,7 @@ function setup() {
     toast,
     hasDraft: () => !!syncDraft,
   });
-  $("play").onclick = () => (playing ? pause() : play());
+  $("play").onclick = () => (playing || startingPlayback ? pause() : play("paused"));
   $("toStart").onclick = () => {
     pause();
     select(0, 0, true);
@@ -2138,7 +2165,7 @@ function setup() {
       return;
     if (e.code === "Space" || e.key === " ") {
       e.preventDefault();
-      playing ? pause() : play();
+      if (!e.repeat) playing || startingPlayback ? pause() : play("practice");
       return;
     }
     if (!e.target.closest("#scoreViewport,#editToolbar")) return;

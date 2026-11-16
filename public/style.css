@@ -234,6 +234,8 @@ html[lang="en"] .two-buttons { flex-direction: column; }
   background: var(--teal);
   color: white;
 }
+.bar-grid button.practice-start { box-shadow: inset 0 -3px #bd8a37; }
+.practice-start-label { color: #8b601b; background: #fff6df; border-radius: 5px; padding: 3px 7px; font-size: 11px; white-space: nowrap; }
 .bar-grid button.in-view:not(.current) {
   background: #dfebe2;
   color: var(--teal);
