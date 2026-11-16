@@ -7,9 +7,10 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from urllib.parse import quote, unquote
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from publishing import Publisher, PublishError, GitHubError, write_json
+from publishing import Publisher, PublishError, GitHubError, write_json, score_slug, unique_score_slug, valid_score_slug
 from server import new_xml
 
 
@@ -195,6 +196,64 @@ class PublishingTests(unittest.TestCase):
             with self.assertRaisesRegex(PublishError, 'PDF failed'):
                 self.publisher.prepare('score-new', {'xml': self.xml, 'revision': 'v1',
                     'project': {'title': 'Original', 'recordings': [{'file': 'secret.mp3'}]}}, 'http://127.0.0.1:1234')
+        self.assertEqual(self.fake.calls, [])
+
+    def test_title_names_are_portable_and_case_insensitive_collisions_get_numbers(self):
+        self.assertEqual(score_slug('  波 / Rain: 夜?  '), '波 - Rain - 夜 -')
+        self.assertEqual(score_slug('CON.txt'), 'Score - CON.txt')
+        self.assertEqual(score_slug('......... - しづかの海'), '......... - しづかの海')
+        self.assertEqual(score_slug('.git'), 'Score - .git')
+        self.assertEqual(unique_score_slug('Rain', ['rain', 'RAIN (2)']), 'Rain (3)')
+        self.assertEqual(unique_score_slug('Café', ['Cafe\u0301']), 'Café (2)')
+        long_name = unique_score_slug('曲' * 120, [score_slug('曲' * 120)])
+        self.assertLessEqual(len(long_name.encode('utf-8')), 200)
+        self.assertTrue(long_name.endswith(' (2)'))
+        for unsafe in ['../escape', 'a/b', 'a\\b', 'NUL', 'name.', 'name ', '', '\x00']:
+            self.assertFalse(valid_score_slug(unsafe), unsafe)
+
+    def test_prepare_uses_title_and_preserves_name_after_later_title_edits(self):
+        def render(ident, base):
+            (self.publisher.draft_path(ident) / 'score.pdf').write_bytes(self.pdf)
+        data = {'xml': self.xml, 'revision': 'v1', 'project': {'title': '夜の曲 (Live)'}}
+        write_json(self.publisher.work / 'state.json', {
+            'other': {'repository': 'test/scores', 'slug': '夜の曲 (Live)'}})
+        with patch.object(self.publisher, 'render_pdf', render):
+            first = self.publisher.prepare('score-new', data, 'http://localhost')
+            self.assertEqual(first['slug'], '夜の曲 (Live) (2)')
+            write_json(self.publisher.work / 'state.json', {
+                'score-new': {'repository': 'test/scores', 'slug': first['slug']}})
+            data['project']['title'] = 'Renamed title'
+            self.assertEqual(self.publisher.prepare('score-new', data, 'http://localhost')['slug'], first['slug'])
+
+    def test_unicode_catalog_survives_publish_and_links_are_encoded(self):
+        name = '夜の曲 #1 (Live)'
+        other = '雨 & Café'
+        files = self.fake.files()
+        files.update({f'scores/{other}/score.musicxml': self.xml.encode(),
+                      f'scores/{other}/score.pdf': self.pdf,
+                      f'scores/{name}/score.musicxml': self.xml.encode(),
+                      'catalog.json': json.dumps({'schemaVersion': 1, 'scores': {
+                          other: {**self.draft['info'], 'title': other, 'flatId': 'original-other'},
+                          name: {**self.draft['info'], 'title': name, 'flatId': 'original-id'}}}).encode()})
+        self.fake.head = self.fake.commit_files(files)
+        self.draft['slug'] = name
+        write_json(self.publisher.draft_path(self.ident) / 'snapshot.json', self.draft)
+        result = self.publish()
+        published = self.fake.files()
+        catalog = json.loads(published['catalog.json'])['scores']
+        self.assertIn(other, catalog)
+        self.assertEqual(catalog[name]['flatId'], 'original-id')
+        self.assertIn('/scores/' + quote(name, safe=''), result['url'])
+        self.assertTrue(unquote(result['pdfUrl']).endswith('/scores/' + name + '/score.pdf'))
+        for readme in ['README.md', 'README.zh-CN.md']:
+            self.assertIn(('scores/' + quote(other, safe='') + '/score.pdf').encode(), published[readme])
+            self.assertIn(('scores/' + quote(name, safe='') + '/README.md').encode(), published[readme])
+
+    def test_preview_from_before_folder_rename_cannot_recreate_old_directory(self):
+        write_json(self.publisher.work / 'state.json', {
+            'score-test': {'repository': 'test/scores', 'slug': '曲名'}})
+        with self.assertRaisesRegex(PublishError, '已改名'):
+            self.publish()
         self.assertEqual(self.fake.calls, [])
 
 
