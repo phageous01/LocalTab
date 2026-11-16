@@ -88,3 +88,7 @@ tokens are never sent to the browser or included in score commits.
 
 As with the existing LAN editor, every device with access to this no-login server
 can use its configured publishing feature. Keep the server on your trusted LAN.
+
+Multi-instrument scores publish all parts in both MusicXML and the full-score PDF. Hidden parts are included; the normal Print / PDF action uses the currently visible parts instead.
+
+多乐器乐谱发布时，MusicXML 与完整 PDF 都包含全部声部，包括界面中暂时隐藏的乐器；普通“打印 / PDF”则按当前勾选的乐器输出。

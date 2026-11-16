@@ -7,8 +7,7 @@ align recordings to the score, and slow down playback while transcribing. Scores
 audio and synchronization points stay on the computer running the server.
 No Flat account or cloud service is required.
 
-**Prototype 0.8.0.** The application UI is primarily Chinese; the instructions below
-explain its controls in English. English and Chinese documentation are provided.
+**Version 0.9.0.** Switch between **简体中文 / English** in the top bar. The UI language is remembered in your browser. Score titles, instrument names and notation text stay as written.
 
 ## Features
 
@@ -20,10 +19,19 @@ explain its controls in English. English and Chinese documentation are provided.
 - Add/remove measures; edit time signatures and tempo.
 - Multiple MP3 recordings, each with independent synchronization; copy points between recordings.
 - Playback from **0.50× to 1.00× in 0.01 steps**, with browser pitch preservation.
-- Horizontal scrolling by default; playback follows the current measure.
+- Horizontal scrolling by default; choose a smooth playhead or note-by-note following.
+- Multi-instrument scores: show/hide parts, choose the active instrument, and add bass/guitar parts.
 - MusicXML/MXL import, MusicXML export, and PDF through browser printing.
 - Local autosave, previous-version backups, and access over a home LAN.
 - Publish MusicXML and an automatically generated PDF to a public GitHub score library.
+
+## Language, instruments and playback view
+
+- Use the language selector in the top bar. Labels, toolbar help, dialogs and application errors switch without reloading or discarding pending input. Language is a browser preference.
+- In the sidebar, **Active instrument** chooses the part you edit. Check the instruments you want to see, or use **Show all / Only active**. At least one part remains visible. Add an instrument with **+ Add instrument**; it starts with rests and follows the existing meter. Its tuning can then be changed.
+- Edits and copy/paste affect the active part. Measure, meter and tempo changes apply to every part; if any part has an unsupported editing structure, the whole change is rejected. Hidden parts stay in MusicXML and are not deleted.
+- **Smooth follow / Note by note** sits above the score. Smooth mode moves a vertical line continuously between engraved notes using the recording's synchronization map. Step mode keeps the note selection box. You can switch during playback; the choice is remembered per browser. Smooth mode scrolls continuously with the playhead near the left third of the viewport; step mode keeps measure-based following.
+- Printing uses the currently visible instruments. Publishing creates a complete score PDF with all parts. The oscillator preview plays the active instrument; an MP3 still plays its original mix.
 
 ## Installation and startup
 
@@ -87,8 +95,8 @@ it does not run this Python service.
    point). The dialog freezes the current recording timestamp. Enter the matching
    measure, defaulting to its beginning, then **保存同步点** (Save sync point).
    Selecting a different measure in this dialog does not move the timestamp.
-4. Add a second point later, then more where the performance drifts. Click a point
-   on the timeline to edit it or drag it to fine-tune time. Open **同步点** to copy
+4. Add a second point later, then more where the performance drifts. Click
+   **展开波形** (Expand waveform), then click a point on the timeline to edit it or drag it to fine-tune time. Open **同步点** to copy
    points from another recording or shift all timestamps by milliseconds. Calibrate
    each MP3 separately; copied points are a starting point.
 5. Click a TAB position, select the string with **↑/↓**, and type a fret number.
@@ -100,6 +108,25 @@ it does not run this Python service.
 7. Wait for the saved indicator or click **保存** (Save). Changes autosave after a
    short delay. Reopening restores recordings and synchronization. **导出 MusicXML**
    exports notation; **打印 / PDF** opens the print view for browser Save as PDF.
+
+Use **侧栏** (Sidebar) in the top-left corner to hide or show the library, tuning,
+and measure navigation. Hiding it gives the score more room; the browser remembers
+your choice. Editing happens directly in TAB and the top toolbar, including
+**拆为两音** (Split in two) under Notes.
+
+The score uses the full available page width, with compact controls above it.
+The waveform starts collapsed; playback and sync-point controls remain available.
+Use **缩放** (Zoom) above the score to choose 75%–200% (default 110%); the browser
+remembers your choice. Zoom changes only the editor view, not exported scores or PDFs.
+
+### Select, copy and paste
+
+- Drag across notes, or click the start and use **Shift+Left / Right** to extend or shrink the selection. **Shift+click** also sets its endpoint. Dragging at the score's edge scrolls automatically. Green highlights and a count show the selection; **Esc** clears it.
+- Use **Ctrl+C / Ctrl+V** (**Cmd+C / Cmd+V** on Mac), or the **复制 / 粘贴** (Copy / Paste) buttons above the score. With no range selected, Copy includes the entire current chord.
+- Fragments retain chords, rests, durations, dots, triplets, dynamics and note-level techniques. Connections retain only endpoints inside the selection. Separate text directions, time signatures, tempo and recording sync points are not copied.
+- Paste starts at the current position or the beginning of the selection and replaces the fragment's duration without shifting later music. Sustained notes crossing bar lines are split and tied. Extra bars are added when needed; existing END sync points follow the new score end. **Ctrl/Cmd+Z** undoes the whole paste; **Ctrl/Cmd+Shift+Z** redoes it.
+- Copy between scores preserves string and fret positions, recalculating pitches for the destination tuning. Pasting to an instrument missing a required string is refused without changing the score.
+- Keyboard copy/paste works over ordinary LAN HTTP. If the browser blocks system clipboard access from buttons, the two buttons still work within the page; use keyboard shortcuts across windows. The Paste button uses the last fragment copied in this page, while keyboard paste reads the system clipboard.
 
 ### Keyboard and toolbar
 
@@ -175,11 +202,9 @@ Public MusicXML lives separately in [LocalTab-Scores](https://github.com/phageou
 Use **发布 / Publish** to publish explicitly. Ordinary saving still does **not** push
 to GitHub. See [publishing setup and usage](docs/PUBLISHING.md).
 
-## Prototype limits
+## Current limits
 
-- Editing targets one part/voice with 4–6 strings. Complex multi-part, overlapping
-  multi-voice or unsupported MusicXML is read-only; display may show only the first
-  track. Keep the original import as a backup.
+- Editing targets one selected single-voice part with 4–6 strings. Multi-part scores are displayed in full or as selected parts; instruments with overlapping voices, complex repeats or unsupported MusicXML remain view-only. All parts remain in the exported XML. Keep the original import as a backup.
 - Chord tones share their duration. Independent rhythms on different strings are
   not yet an editing feature.
 - MP3s are alternative recordings, not a multitrack mixer. Synthesized preview is

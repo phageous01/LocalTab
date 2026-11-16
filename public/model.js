@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n.js";
 export const PRESETS = {
   bass4: ["E1", "A1", "D2", "G2"],
   bass5: ["B0", "E1", "A1", "D2", "G2"],
@@ -57,7 +58,7 @@ function set(e, tag, value) {
 }
 export function pitchNumber(name) {
   const m = /^([A-Ga-g])([#b]?)([0-8])$/.exec(name.trim());
-  if (!m) throw Error("调弦格式如 E1、F#1、Bb0");
+  if (!m) throw Error(tr("调弦格式如 E1、F#1、Bb0"));
   return (
     { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1].toUpperCase()] +
     (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0) +
@@ -116,7 +117,7 @@ const durations = [
 ];
 function setDurationNode(n, q) {
   const info = durations.find((d) => Math.abs(d[0] - q) < 0.00001);
-  if (!info) throw Error("原型暂不支持这个时值");
+  if (!info) throw Error(tr("原型暂不支持这个时值"));
   set(n, "duration", Math.round(q * 480));
   set(n, "type", info[1]);
   remove(n, "dot");
@@ -135,24 +136,33 @@ function restNodes(doc, q) {
       q -= d[0];
     }
   }
-  if (q > 0.00001) throw Error("余下时值无法表示");
+  if (q > 0.00001) throw Error(tr("余下时值无法表示"));
   return result;
 }
 
 export class ScoreDocument {
-  constructor(xml) {
+  constructor(xml, activePartId = null) {
+    this.activePartId = activePartId;
     this.doc = new DOMParser().parseFromString(xml, "application/xml");
-    if (all(this.doc, "parsererror").length) throw Error("MusicXML 无法解析");
+    if (all(this.doc, "parsererror").length) throw Error(tr("MusicXML 无法解析"));
     this.refresh();
   }
   refresh() {
     const root = this.doc.documentElement;
     if (root.localName !== "score-partwise")
-      throw Error("请选择 partwise MusicXML");
+      throw Error(tr("请选择 partwise MusicXML"));
     this.parts = kids(root).filter((n) => n.nodeName === "part");
-    this.part = this.parts[0];
-    if (!this.part) throw Error("乐谱中没有声部");
-    this.title = all(root, "work-title")[0]?.textContent || "未命名乐谱";
+    this.part = this.parts.find((p) => p.getAttribute("id") === this.activePartId) || this.parts[0];
+    if (!this.part) throw Error(tr("乐谱中没有声部"));
+    this.activePartId = this.part.getAttribute("id");
+    this.partIndex = this.parts.indexOf(this.part);
+    const definitions = all(child(root, "part-list"), "score-part");
+    this.partInfos = this.parts.map((part, index) => {
+      const id = part.getAttribute("id");
+      const definition = definitions.find((p) => p.getAttribute("id") === id);
+      return { id, index, name: txt(definition, "part-name", id) };
+    });
+    this.title = all(root, "work-title")[0]?.textContent || tr("未命名乐谱");
     this.tempo = Number(
       all(root, "sound")
         .find((n) => n.hasAttribute("tempo"))
@@ -173,7 +183,6 @@ export class ScoreDocument {
         12 * (Number(txt(n, "tuning-octave")) + 1),
     );
     this.editable =
-      this.parts.length === 1 &&
       [4, 5, 6].includes(this.tuning.length) &&
       !all(this.part, "backup").length &&
       !all(this.part, "forward").length &&
@@ -270,18 +279,35 @@ export class ScoreDocument {
         }
       }
       measure.actualLength = offset;
+      if (!measure.notes.length) {
+        // Empty imported bars still need a selectable viewing position. This is
+        // an in-memory placeholder only; the original MusicXML stays untouched.
+        this.editable = false;
+        const placeholder = { el: m, mi, ni: 0, q, duration: measure.length,
+          rest: true, midi: null, string: 1, fret: 0, type: "whole", dots: 0,
+          tuplet: false, tones: [] };
+        measure.notes.push(placeholder);
+        this.notes.push(placeholder);
+      }
       this.measures.push(measure);
       q += measure.length;
     }
     this.totalQ = q;
+    if (!this.measures.length) throw Error(tr("乐器中没有小节"));
   }
   serialize() {
     return new XMLSerializer().serializeToString(this.doc);
   }
+  selectPart(id) {
+    if (!this.parts.some((part) => part.getAttribute("id") === id))
+      throw Error(tr("乐器不存在"));
+    this.activePartId = id;
+    this.refresh();
+  }
   requireEdit() {
     if (!this.editable)
       throw Error(
-        "当前编辑单声部、无复杂反复的4–6弦谱。复杂谱可查看与原样导出。",
+        tr("当前编辑单声部、无复杂反复的4–6弦谱。复杂谱可查看与原样导出。"),
       );
   }
   event(mi, ni) {
@@ -295,7 +321,7 @@ export class ScoreDocument {
   }
   requireTone(mi, ni, string = null) {
     const tone = this.tone(mi, ni, string);
-    if (!tone || tone.rest) throw Error("当前弦没有音符，请先输入品位");
+    if (!tone || tone.rest) throw Error(tr("当前弦没有音符，请先输入品位"));
     return tone;
   }
   adjacentTone(event, direction) {
@@ -332,9 +358,9 @@ export class ScoreDocument {
       fret < 0 ||
       fret > 36
     )
-      throw Error("弦号或品位超出范围（0–36品）");
+      throw Error(tr("弦号或品位超出范围（0–36品）"));
     const e = this.event(mi, ni);
-    if (!e) throw Error("请选择音符");
+    if (!e) throw Error(tr("请选择音符"));
     const midi = this.tuning[this.tuning.length - string] + fret;
     let tone = this.tone(mi, ni, string);
     if (!tone && !e.rest) {
@@ -419,8 +445,8 @@ export class ScoreDocument {
   toggleDead(mi, ni, string = null) {
     this.requireEdit();
     const e = this.requireTone(mi, ni, string);
-    if (e.rest) throw Error("休止符不能设为闷音");
-    if (e.tieStart || e.tieStop) throw Error("请先取消这个音的延音连接");
+    if (e.rest) throw Error(tr("休止符不能设为闷音"));
+    if (e.tieStart || e.tieStop) throw Error(tr("请先取消这个音的延音连接"));
     remove(e.el, "notehead");
     if (!e.dead) add(e.el, "notehead", "x");
     this.refresh();
@@ -443,7 +469,7 @@ export class ScoreDocument {
         e.string !== next.string ||
         e.fret !== next.fret
       )
-        throw Error("延音线需要相邻的同弦、同品音符");
+        throw Error(tr("延音线需要相邻的同弦、同品音符"));
       setTie(e.el, "start", true);
       setTie(next.el, "stop", true);
     }
@@ -472,12 +498,12 @@ export class ScoreDocument {
   }
   setDuration(mi, ni, duration) {
     this.requireEdit();
-    if (this.event(mi, ni).tuplet) throw Error("请使用工具栏修改连音组时值");
+    if (this.event(mi, ni).tuplet) throw Error(tr("请使用工具栏修改连音组时值"));
     this.normalizeDivisions();
     const m = this.measures[mi],
       e = m.notes[ni];
     if (e.tones.some((t) => t.tieStart || t.tieStop))
-      throw Error("请先取消延音连接，再更改时值");
+      throw Error(tr("请先取消延音连接，再更改时值"));
     const diff = duration - e.duration;
     if (diff > 0) {
       let available = 0;
@@ -491,7 +517,7 @@ export class ScoreDocument {
         rests.push(m.notes[j]);
       }
       if (available + 1e-6 < diff)
-        throw Error("后方没有足够休止符；不会覆盖已有音符");
+        throw Error(tr("后方没有足够休止符；不会覆盖已有音符"));
       const before = rests.length
         ? rests.at(-1).el.nextSibling
         : e.tones.at(-1).el.nextSibling;
@@ -510,8 +536,8 @@ export class ScoreDocument {
     this.normalizeDivisions();
     const e = this.event(mi, ni);
     if (e.tones.some((t) => t.tieStart || t.tieStop))
-      throw Error("请先取消延音连接，再拆分");
-    if (e.duration < 0.25) throw Error("当前原型拆分最小到三十二分音符");
+      throw Error(tr("请先取消延音连接，再拆分"));
+    if (e.duration < 0.25) throw Error(tr("当前原型拆分最小到三十二分音符"));
     const before = e.tones.at(-1).el.nextSibling;
     for (const t of e.tones) {
       const clone = t.el.cloneNode(true);
@@ -537,14 +563,14 @@ export class ScoreDocument {
   setTuning(values, mode = "fret") {
     this.requireEdit();
     const tuning = values.map(pitchNumber);
-    if (![4, 5, 6].includes(tuning.length)) throw Error("请选择4、5或6弦");
+    if (![4, 5, 6].includes(tuning.length)) throw Error(tr("请选择4、5或6弦"));
     const changes = [],
       assigned = new Map();
     for (const beat of this.notes.filter((n) => !n.rest)) {
       const choices = beat.tones.map((e) => {
         if (mode !== "pitch") {
           if (e.string > tuning.length)
-            throw Error("已有音符位于将被移除的弦上；请选择保留音高");
+            throw Error(tr("已有音符位于将被移除的弦上；请选择保留音高"));
           return [{ string: e.string, fret: e.fret }];
         }
         const previous = this.adjacentTone(e, -1),
@@ -585,7 +611,7 @@ export class ScoreDocument {
       };
       if (!assign(0))
         throw Error(
-          "新调弦无法把和弦的所有音放在不同弦上，请保留品位或使用更多/更低的弦",
+          tr("新调弦无法把和弦的所有音放在不同弦上，请保留品位或使用更多/更低的弦"),
         );
       beat.tones.forEach((e, i) => {
         const c = result[i];
@@ -614,7 +640,7 @@ export class ScoreDocument {
 }
 
 export function validateAnchors(points) {
-  if (!Array.isArray(points)) throw Error("同步点必须是列表");
+  if (!Array.isArray(points)) throw Error(tr("同步点必须是列表"));
   const p = [...points].sort((a, b) => a.q - b.q);
   for (let i = 0; i < p.length; i++) {
     if (
@@ -623,15 +649,15 @@ export function validateAnchors(points) {
       p[i].q < 0 ||
       p[i].seconds < 0
     )
-      throw Error("同步点必须是非负数");
+      throw Error(tr("同步点必须是非负数"));
     if (i && (p[i].q <= p[i - 1].q || p[i].seconds <= p[i - 1].seconds))
-      throw Error("同步点的乐谱位置和录音时间都必须递增");
+      throw Error(tr("同步点的乐谱位置和录音时间都必须递增"));
   }
   return p;
 }
 function interpolate(x, points, from, to) {
   if (points.length < 2)
-    throw Error("旧版线性映射需要两个点；请使用录音时间映射");
+    throw Error(tr("旧版线性映射需要两个点；请使用录音时间映射"));
   let i = points.findIndex((p) => p[from] > x);
   if (i < 0) i = points.length - 1;
   else if (i === 0) i = 1;

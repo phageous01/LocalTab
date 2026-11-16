@@ -1,7 +1,9 @@
+import { t as tr } from "./i18n.js";
 import {
   ScoreDocument as BasicScoreDocument,
   xml,
   validateAnchors,
+  pitchNumber,
 } from "./model.js";
 const {
   kids,
@@ -46,10 +48,10 @@ function clearConnections(n) {
 }
 function writeRhythm(n, type, dots = 0, actual = 1, normal = 1) {
   if (!(type in NOTE_VALUES) || ![0, 1, 2].includes(dots))
-    throw Error("无效时值");
+    throw Error(tr("无效时值"));
   const q = (NOTE_VALUES[type] * (2 - 2 ** -dots) * normal) / actual;
   if (Math.abs(q * 480 - Math.round(q * 480)) > 1e-6)
-    throw Error("该时值超出当前精度");
+    throw Error(tr("该时值超出当前精度"));
   set(n, "duration", Math.round(q * 480));
   set(n, "type", type);
   remove(n, "dot");
@@ -88,9 +90,19 @@ export class ScoreDocument extends BasicScoreDocument {
   refresh() {
     super.refresh();
     this.tempoMap = [{ q: 0, bpm: 120, seconds: 0 }];
-    for (const m of this.measures) {
+    // Tempo belongs to the score: first-part/conductor markings take precedence.
+    // Selecting another instrument must not change MP3 synchronization.
+    for (const part of [...this.parts].reverse()) {
+      let div = 1, q = 0, beats = 4, unit = 4;
+      for (const el of kids(part).filter((node) => node.nodeName === "measure")) {
+        const at = child(el, "attributes"), time = child(at, "time");
+        div = Number(txt(at, "divisions", div));
+        if (time) { beats = Number(txt(time, "beats", beats)); unit = Number(txt(time, "beat-type", unit)); }
+        const m = { el, div, q };
       let offset = 0;
       for (const node of kids(m.el)) {
+        if (node.nodeName === "backup") offset -= Number(txt(node, "duration", 0)) / m.div;
+        if (node.nodeName === "forward") offset += Number(txt(node, "duration", 0)) / m.div;
         if (node.nodeName === "note" && !child(node, "chord"))
           offset += Number(txt(node, "duration", 0)) / m.div;
         if (node.nodeName === "direction" || node.nodeName === "sound") {
@@ -112,6 +124,8 @@ export class ScoreDocument extends BasicScoreDocument {
           }
         }
       }
+        q += beats * 4 / unit;
+      }
     }
     this.tempoMap.sort((a, b) => a.q - b.q);
     this.tempoMap = this.tempoMap.filter(
@@ -131,6 +145,68 @@ export class ScoreDocument extends BasicScoreDocument {
   secondsToQ(t) {
     const s = this.tempoMap.findLast((s) => s.seconds <= t) || this.tempoMap[0];
     return s.q + ((t - s.seconds) * s.bpm) / 60;
+  }
+  // Global bar/meter/tempo changes affect every part or none of them.
+  applyToParts(method, args) {
+    if (this.parts.length === 1 || this.singlePartOperation) return false;
+    const before = this.serialize(), active = this.activePartId;
+    this.singlePartOperation = true;
+    try {
+      for (const { id } of this.partInfos) {
+        this.selectPart(id);
+        this[method](...args);
+      }
+    } catch (error) {
+      this.doc = new DOMParser().parseFromString(before, "application/xml");
+      throw Error(tr`无法对全谱应用此修改（${this.partInfos[this.partIndex].name}）：${error.message}`);
+    } finally {
+      this.singlePartOperation = false;
+      this.activePartId = active;
+      this.refresh();
+    }
+    return true;
+  }
+  appendMeasure() { this.insertMeasure(this.measures.length); }
+  addPart(name, tuning) {
+    const pitches = tuning.map(pitchNumber);
+    if (![4, 5, 6].includes(pitches.length) || !name.trim())
+      throw Error(tr("请输入乐器名称，并选择 4、5 或 6 弦调弦"));
+    const idBase = "P", ids = new Set(this.partInfos.map((p) => p.id));
+    let number = 1;
+    while (ids.has(idBase + number)) number++;
+    const id = idBase + number, root = this.doc.documentElement;
+    const definition = add(child(root, "part-list"), "score-part");
+    definition.setAttribute("id", id);
+    add(definition, "part-name", name.trim());
+    const part = add(root, "part");
+    part.setAttribute("id", id);
+    for (const [index, source] of this.measures.entries()) {
+      const measure = add(part, "measure");
+      measure.setAttribute("number", index + 1);
+      const attributes = add(measure, "attributes");
+      add(attributes, "divisions", 480);
+      const time = add(attributes, "time");
+      add(time, "beats", source.beats); add(time, "beat-type", source.unit);
+      if (index === 0) {
+        const clef = add(attributes, "clef");
+        add(clef, "sign", pitches.length === 6 ? "G" : "F");
+        add(clef, "line", pitches.length === 6 ? 2 : 4);
+        add(clef, "clef-octave-change", -1);
+        const details = add(attributes, "staff-details");
+        add(details, "staff-lines", pitches.length);
+        tuning.forEach((pitch, i) => {
+          const match = pitch.match(/^([A-Ga-g])([#b]?)([0-8])$/);
+          const tune = add(details, "staff-tuning"); tune.setAttribute("line", i + 1);
+          add(tune, "tuning-step", match[1].toUpperCase());
+          add(tune, "tuning-alter", match[2] === "#" ? 1 : match[2] === "b" ? -1 : 0);
+          add(tune, "tuning-octave", match[3]);
+        });
+      }
+      for (const rest of restNodes(this.doc, source.length)) measure.appendChild(rest);
+    }
+    this.activePartId = id;
+    this.refresh();
+    return id;
   }
   toggleRest(mi, ni) {
     const e = this.event(mi, ni),
@@ -156,8 +232,8 @@ export class ScoreDocument extends BasicScoreDocument {
   }
   split(mi, ni) {
     const e = this.event(mi, ni);
-    if (e.tuplet) throw Error("请先取消三连音组再拆分");
-    if (e.duration < 0.125) throw Error("最小拆分到六十四分音符");
+    if (e.tuplet) throw Error(tr("请先取消三连音组再拆分"));
+    if (e.duration < 0.125) throw Error(tr("最小拆分到六十四分音符"));
     const copies = [0, 1].flatMap(() =>
       copyBeat(e, (c) => setDurationNode(c, e.duration / 2)),
     );
@@ -218,17 +294,17 @@ export class ScoreDocument extends BasicScoreDocument {
       start = m.notes[ni];
     const span = Math.max(oldSpan, newSpan);
     if (start.q - m.q + span > m.length + 1e-6)
-      throw Error("时值超出本小节，请先插入小节或选择较短时值");
+      throw Error(tr("时值超出本小节，请先插入小节或选择较短时值"));
     let covered = 0;
     const consumed = [];
     for (let i = ni; i < m.notes.length && covered < span - 1e-6; i++) {
       const n = m.notes[i];
       if (mode === "protect" && covered >= oldSpan - 1e-6 && !n.rest)
-        throw Error("保护模式不会覆盖后续音符；可切换为替换模式");
+        throw Error(tr("保护模式不会覆盖后续音符；可切换为替换模式"));
       consumed.push(n);
       covered += n.duration;
     }
-    if (covered < span - 1e-6) throw Error("小节内时值不足");
+    if (covered < span - 1e-6) throw Error(tr("小节内时值不足"));
     const remaining = restNodes(this.doc, covered - newSpan);
     // Sever connections touching replaced notes, including the outside endpoint.
     for (const n of consumed) this.disconnect(n);
@@ -268,7 +344,7 @@ export class ScoreDocument extends BasicScoreDocument {
   }
   editDuration(mi, ni, type, dots = 0, mode = "replace") {
     const e = this.event(mi, ni);
-    if (e.tuplet) throw Error("三连音内部请先取消三连音，再修改时值");
+    if (e.tuplet) throw Error(tr("三连音内部请先取消三连音，再修改时值"));
     let q;
     const copies = copyBeat(e, (n) => {
       removeTuplet(n);
@@ -297,7 +373,7 @@ export class ScoreDocument extends BasicScoreDocument {
         begin--;
       const group = notes.slice(begin, begin + e.actualNotes);
       if (group.length !== 3 || group.some((n) => !n.tuplet))
-        throw Error("当前只支持取消完整的三连音组");
+        throw Error(tr("当前只支持取消完整的三连音组"));
       const copies = group.flatMap((n) =>
         copyBeat(n, (c) => {
           removeTuplet(c);
@@ -318,7 +394,7 @@ export class ScoreDocument extends BasicScoreDocument {
       (t) => Math.abs(NOTE_VALUES[t] - e.duration / 2) < 1e-6,
     );
     if (!type || e.dots)
-      throw Error("请先选择不带附点的音符；将其拆成占用相同时长的三个音");
+      throw Error(tr("请先选择不带附点的音符；将其拆成占用相同时长的三个音"));
     const copies = [0, 1, 2].flatMap((i) =>
       copyBeat(e, (n, toneIndex) => {
         removeTuplet(n);
@@ -342,16 +418,16 @@ export class ScoreDocument extends BasicScoreDocument {
         nextBeat?.tones.find((t) => t.string === e.string) ||
         (tag === "slur" ? nextBeat?.tones[0] : null);
     if (!next || next.q <= e.q || e.rest || next.rest)
-      throw Error("请选两个先后相邻的音符，或用 Shift 选择终点");
+      throw Error(tr("请选两个先后相邻的音符，或用 Shift 选择终点"));
     if (
       ["hammer-on", "pull-off", "slide"].includes(tag) &&
       e.string !== next.string
     )
-      throw Error("击勾与滑音需要同一根弦上的两个音符");
+      throw Error(tr("击勾与滑音需要同一根弦上的两个音符"));
     if (tag === "hammer-on" && next.fret <= e.fret)
-      throw Error("击弦终点品位应高于起点");
+      throw Error(tr("击弦终点品位应高于起点"));
     if (tag === "pull-off" && next.fret >= e.fret)
-      throw Error("勾弦终点品位应低于起点");
+      throw Error(tr("勾弦终点品位应低于起点"));
     const tech = ["hammer-on", "pull-off"].includes(tag),
       origin = tech ? technical(e.el) : notations(e.el),
       destination = tech ? technical(next.el) : notations(next.el);
@@ -402,7 +478,7 @@ export class ScoreDocument extends BasicScoreDocument {
           : this.requireTone(mi, ni, string),
       n = e.el;
     if (e.rest && !["fermata", "breath-mark", "caesura"].includes(tag))
-      throw Error("请先在 TAB 上写入一个音符");
+      throw Error(tr("请先在 TAB 上写入一个音符"));
     if (tag === "ghost") {
       let h = child(n, "notehead");
       if (h?.getAttribute("parentheses") === "yes") {
@@ -471,8 +547,8 @@ export class ScoreDocument extends BasicScoreDocument {
   setBend(mi, ni, amount = 2, kind = "bend", string = null) {
     this.requireEdit();
     const e = this.requireTone(mi, ni, string);
-    if (e.rest) throw Error("休止符不能推弦");
-    if (![0.5, 1, 2, 3, 4].includes(amount)) throw Error("请选择推弦音程");
+    if (e.rest) throw Error(tr("休止符不能推弦"));
+    if (![0.5, 1, 2, 3, 4].includes(amount)) throw Error(tr("请选择推弦音程"));
     const t = technical(e.el);
     remove(t, "bend");
     if (kind !== "none") {
@@ -509,7 +585,7 @@ export class ScoreDocument extends BasicScoreDocument {
           "pf",
         ].includes(value)
       )
-        throw Error("无效力度");
+        throw Error(tr("无效力度"));
       add(add(no, "dynamics"), value);
     }
     this.refresh();
@@ -539,7 +615,7 @@ export class ScoreDocument extends BasicScoreDocument {
     const e = this.event(mi, ni),
       idx = this.notes.indexOf(e),
       next = this.notes[endIndex ?? idx + 1];
-    if (!next || next.q <= e.q) throw Error("渐强/渐弱需要起点和终点");
+    if (!next || next.q <= e.q) throw Error(tr("渐强/渐弱需要起点和终点"));
     const used = all(this.part, "wedge").map((x) =>
       Number(x.getAttribute("number") || 1),
     );
@@ -558,9 +634,10 @@ export class ScoreDocument extends BasicScoreDocument {
     this.refresh();
   }
   setTempo(mi, bpm) {
+    if (this.applyToParts("setTempo", [mi, bpm])) return;
     this.requireEdit();
     if (!Number.isFinite(bpm) || bpm < 20 || bpm > 300)
-      throw Error("速度范围为 20–300 BPM");
+      throw Error(tr("速度范围为 20–300 BPM"));
     const m = this.measures[mi];
     for (const sound of kids(m.el).filter(
       (x) => x.nodeName === "sound" && x.hasAttribute("tempo"),
@@ -580,6 +657,7 @@ export class ScoreDocument extends BasicScoreDocument {
     this.refresh();
   }
   insertMeasure(index) {
+    if (this.applyToParts("insertMeasure", [index])) return;
     this.requireEdit();
     this.normalizeDivisions();
     const reference = this.measures[Math.min(index, this.measures.length - 1)];
@@ -599,8 +677,9 @@ export class ScoreDocument extends BasicScoreDocument {
     this.refresh();
   }
   removeMeasure(index) {
+    if (this.applyToParts("removeMeasure", [index])) return;
     this.requireEdit();
-    if (this.measures.length <= 1) throw Error("至少保留一个小节");
+    if (this.measures.length <= 1) throw Error(tr("至少保留一个小节"));
     const m = this.measures[index],
       next = this.measures[index + 1];
     for (const n of m.notes) this.disconnect(n);
@@ -624,6 +703,7 @@ export class ScoreDocument extends BasicScoreDocument {
       .forEach((m, i) => m.setAttribute("number", i + 1));
   }
   setTimeSignature(mi, beats, unit, scope = "current", trim = false) {
+    if (this.applyToParts("setTimeSignature", [mi, beats, unit, scope, trim])) return;
     this.requireEdit();
     if (
       !Number.isInteger(beats) ||
@@ -631,7 +711,7 @@ export class ScoreDocument extends BasicScoreDocument {
       beats > 32 ||
       ![1, 2, 4, 8, 16].includes(unit)
     )
-      throw Error("拍号分子 1–32，分母 1/2/4/8/16");
+      throw Error(tr("拍号分子 1–32，分母 1/2/4/8/16"));
     this.normalizeDivisions();
     const old = this.measures[mi],
       next = this.measures[mi + 1],
@@ -651,10 +731,10 @@ export class ScoreDocument extends BasicScoreDocument {
           (e) => e.q - m.q + e.duration > length + 1e-6,
         );
         if (!trim && affected.some((e) => !e.rest))
-          throw Error("缩短拍号会截去音符；勾选“截去超出内容”或先整理小节");
+          throw Error(tr("缩短拍号会截去音符；勾选“截去超出内容”或先整理小节"));
         for (const e of affected) {
           const keep = Math.max(0, length - (e.q - m.q));
-          if (e.tuplet) throw Error("新拍号会截断三连音组，请先调整该组");
+          if (e.tuplet) throw Error(tr("新拍号会截断三连音组，请先调整该组"));
           const chunks = restNodes(this.doc, keep);
           this.disconnect(e);
           for (const r of chunks) {
@@ -716,16 +796,22 @@ export function applyDisplaySettings(score, model) {
   for (const track of score.tracks)
     for (const staff of track.staves) {
       staff.showStandardNotation = true;
-      staff.showTablature = true;
+      staff.showTablature = !staff.isPercussion && staff.tuning.length > 0;
     }
   // Standard MusicXML other-technical retains these labels in exported files.
-  for (const e of model.notes) {
-    const beat = score.tracks[0]?.staves[0]?.bars[e.mi]?.voices[0]?.beats[e.ni];
+  const activePart = model.activePartId;
+  for (const part of model.partInfos) {
+    model.selectPart(part.id);
+    if (!model.editable) continue;
+    for (const e of model.notes) {
+    const beat = score.tracks[part.index]?.staves[0]?.bars[e.mi]?.voices[0]?.beats[e.ni];
     if (!beat) continue;
     const marks = e.tones.map((t) => model.marks(e.mi, e.ni, t.string).tags);
     beat.slap = marks.some((tags) => tags.has("slap"));
     beat.pop = marks.some((tags) => tags.has("pop"));
+    }
   }
+  model.selectPart(activePart);
 }
 export function remapAnchors(anchors, previous, current, oldTotal, newTotal) {
   const byElement = new Map(current.map((m) => [m.el, m]));

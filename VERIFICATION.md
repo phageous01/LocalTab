@@ -33,6 +33,26 @@ python -m unittest discover -s tests -p "*_test.py"
 零/单/多同步点、速度变化、固定时间戳、保存冲突、音频上传及局域网请求校验。
 测试样本是从零生成的合成数据；HTTP 测试只使用临时谱库。
 
+## Selection and layout update / 选区与布局更新
+
+After the 0.8 publication baseline, **52 JavaScript tests passed** (12 new clipboard
+cases). Added checks cover chords, rests, markings, tuplets, cross-bar ties, different
+meters and tunings, appended measures, preserved tempo positions and untouched note
+annotations, and atomic rejection of invalid fragments. The HTTP/publishing checks
+above describe the earlier baseline; those backend modules were unchanged in this update.
+
+Browser checks used an isolated original guitar exercise over LAN HTTP: mouse drag
+across measures, edge scrolling, Shift+arrow extension/shrinking, keyboard copy/paste,
+cross-tab paste, in-page buttons, undo/redo, and saved MusicXML chord contents. Compact
+layout, sidebar persistence, zoom and playback following were also checked.
+
+0.8 发布之后，**52 项 JavaScript 测试通过**，新增 12 项剪贴板测试，覆盖和弦、休止、奏法、
+三连音、跨小节延音、不同拍号与调弦、末尾补小节、速度位置、保留选区外标记，以及无效片段不修改乐谱。
+本次没有修改后端，上述 HTTP / 发布测试记录仍对应原发布基线。
+使用独立原创吉他练习谱和局域网 HTTP 地址验证了拖选、边缘滚动、Shift 扩大/缩小选区、
+键盘复制粘贴、跨标签页粘贴、页内按钮、撤销/重做及保存后的 MusicXML 和弦内容。
+紧凑布局、侧栏记忆、缩放与播放跟随也已完成浏览器验证。
+
 ## Manual checks and scope / 人工验证及范围
 
 Version 0.8: the Chrome UI completed a real publication to a public score
@@ -58,3 +78,16 @@ audio and print behavior still need browser checks.
 
 这些结果不代表所有 MusicXML 方言、移动浏览器、打印机、多声部或同时编辑场景均兼容。
 修改编辑器、同步或服务端逻辑后应重跑测试；音频和打印仍需浏览器人工验证。
+
+
+## Version 0.9 / 0.9 版本
+
+- **61 JavaScript tests and 25 Python HTTP/publishing tests passed.** New tests cover translation placeholders, literal user content, blocked preference storage, static label updates without replacing inputs, active-part editing/copy-paste, whole-score meter/bar/tempo changes, atomic rejection, all-part publication snapshots, and frame-rate-independent continuous following.
+- A read-only local migration audit loaded **34 multi-instrument scores / 90 parts**, including **52 editable parts**, through the editor and alphaTab. Track counts matched; selecting every part left serialized notation unchanged and retained the same global tempo map. No imported files were rewritten by this audit.
+- The actual PDF preview service generated an original two-instrument, four-measure duet as a one-page A4 PDF. The rendered page was visually inspected: both instrument staves, rhythmic TAB, title and page number were present. No public score was published by this check.
+- All static Chinese UI labels in the main and print HTML have English entries. Browser interaction verification of this update is incomplete: Windows Computer Use stopped because it could not reliably confirm the current Chrome URL. The tests above do not substitute for a live interaction/animation check.
+
+**61 项 JavaScript 与 25 项 Python HTTP/发布测试通过。** 新增验证涵盖语言插值、保留用户文字、浏览器存储不可用、更新标签而不替换输入框、多乐器编辑与粘贴、全谱拍号/小节/速度修改、失败回滚、包含全部声部的发布快照和不同帧率下的连续滚动。
+只读检查了本地 **34 首多乐器谱、90 个声部**，其中 **52 个声部符合当前编辑条件**；切换声部不改变乐谱或全谱速度映射，检查没有重写导入文件。
+实际 PDF 预览服务生成了一份原创双乐器、四小节测试谱，输出为一页 A4；渲染后检查了两个乐器、节奏 TAB、标题与页码，未发布任何公开曲谱。
+主页面与打印页面的中文静态标签均有英文条目。本轮浏览器交互验证尚未完成：Windows Computer Use 因无法可靠确认 Chrome 地址而中止。上述测试不等同于实际交互和动画效果验证。

@@ -128,7 +128,7 @@ class ServerTests(unittest.TestCase):
                 status, _, body = self.request('GET', '/api/session', headers={'Host': host}, token=False)
                 self.assertEqual(status, 200)
                 session = json.loads(body)
-                self.assertEqual(session['version'], '0.8.0')
+                self.assertEqual(session['version'], '0.9.0')
                 headers = {'Host': host, 'Origin': f'http://{host}', 'X-Local-Token': session['token']}
                 status, _, body = self.request('POST', '/api/new', {'title': 'LAN score', 'beats': 6, 'unit': 8}, headers, token=False)
                 self.assertEqual(status, 201)

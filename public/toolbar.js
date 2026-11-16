@@ -1,3 +1,4 @@
+import { t as tr, bindTranslations } from "./i18n.js";
 const tabs = [
   ["notes", "音符", "Notes"],
   ["tab", "TAB 技巧", "Tab"],
@@ -136,6 +137,13 @@ export function createToolbar(host, hooks) {
       }),
     "将当前音拆成等时长三连音；再次点击取消 · Alt+T",
     "tuplet",
+  );
+  btn(
+    "notes",
+    "拆为两音",
+    "÷2",
+    () => exec((m, a, b) => m.split(a, b)),
+    "将当前音位（包括和弦）均分为两个音位，保持总时长",
   );
   const modeLabel = document.createElement("label");
   modeLabel.className = "tool-field";
@@ -333,14 +341,16 @@ export function createToolbar(host, hooks) {
   for (const b of host.querySelectorAll("[data-tab]"))
     b.onclick = () => switchTab(b.dataset.tab);
   switchTab(active);
+  bindTranslations(host);
   return {
     mode,
     switchTab,
     refresh() {
       const s = state();
       if (!s.model) return;
-      const e = s.model.event(s.mi, s.ni),
-        tone = s.model.tone(s.mi, s.ni, s.selectedString),
+      const e = s.model.event(s.mi, s.ni);
+      if (!e) return;
+      const tone = s.model.tone(s.mi, s.ni, s.selectedString),
         marks = s.model.marks(s.mi, s.ni, s.selectedString),
         m = s.model.measures[s.mi];
       for (const b of host.querySelectorAll(".tool-button")) {
@@ -370,7 +380,7 @@ export function createToolbar(host, hooks) {
       host.querySelector("#tempoValue").value =
         s.model.tempoMap.findLast((t) => t.q <= m.q)?.bpm ?? s.model.tempo;
       host.querySelector("#toolSelection").textContent =
-        `第 ${s.mi + 1} 小节 · 第 ${s.ni + 1} 音位 · ${s.selectedString} 弦${e.tones.length > 1 ? ` · ${e.tones.length} 音和弦` : ""}${!tone && !e.rest ? " · 输入数字添加音" : ""}${s.rangeStart != null ? " · 已选范围" : ""}${e.tuplet ? " · 三连音" : ""}${e.dots ? " · " + (e.dots === 2 ? "双附点" : "附点") : ""}`;
+        tr`第 ${s.mi + 1} 小节 · 第 ${s.ni + 1} 音位 · ${s.selectedString} 弦${e.tones.length > 1 ? tr` · ${e.tones.length} 音和弦` : ""}${!tone && !e.rest ? tr(" · 输入数字添加音") : ""}${s.rangeStart != null ? tr(" · 已选范围") : ""}${e.tuplet ? tr(" · 三连音") : ""}${e.dots ? " · " + (e.dots === 2 ? tr("双附点") : tr("附点")) : ""}`;
     },
   };
 }

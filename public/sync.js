@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n.js";
 import { validateAnchors } from "./model.js";
 
 export const SYNC_ALGORITHM = "tempo-map-v1";
@@ -44,9 +45,9 @@ export function formatTimestamp(seconds) {
 export function parseTimestamp(text) {
   const m = /^(?:(\d+):)?(\d+(?:\.\d{1,3})?)$/.exec(text.trim());
   if (!m || (m[1] !== undefined && Number(m[2]) >= 60))
-    throw Error("时间格式如 00:14.157 或 14.157 秒");
+    throw Error(tr("时间格式如 00:14.157 或 14.157 秒"));
   const seconds = Number(m[1] || 0) * 60 + Number(m[2]);
-  if (!Number.isFinite(seconds)) throw Error("录音时间无效");
+  if (!Number.isFinite(seconds)) throw Error(tr("录音时间无效"));
   return seconds;
 }
 export function locationToQ(score, measure, beat = 1) {
@@ -57,13 +58,13 @@ export function locationToQ(score, measure, beat = 1) {
     !Number.isFinite(beat) ||
     beat < 1
   )
-    throw Error("小节或拍位无效");
+    throw Error(tr("小节或拍位无效"));
   if (measure === score.measures.length + 1) {
-    if (beat !== 1) throw Error("结束位置的拍位应为 1");
+    if (beat !== 1) throw Error(tr("结束位置的拍位应为 1"));
     return score.totalQ;
   }
   const bar = score.measures[measure - 1];
-  if (beat - 1 >= bar.length) throw Error("拍位超出该小节");
+  if (beat - 1 >= bar.length) throw Error(tr("拍位超出该小节"));
   return bar.q + beat - 1;
 }
 export function qToLocation(score, q) {
@@ -74,7 +75,7 @@ export function qToLocation(score, q) {
 }
 export function saveAnchor(anchors, point, totalQ, duration, editIndex = null) {
   if (!Number.isFinite(point.q) || point.q < 0 || point.q > totalQ)
-    throw Error("同步点超出乐谱范围");
+    throw Error(tr("同步点超出乐谱范围"));
   if (
     !Number.isFinite(point.seconds) ||
     point.seconds < 0 ||
@@ -82,16 +83,16 @@ export function saveAnchor(anchors, point, totalQ, duration, editIndex = null) {
     duration <= 0 ||
     point.seconds > duration + 0.0005
   )
-    throw Error("同步点超出录音时长");
+    throw Error(tr("同步点超出录音时长"));
   const next = anchors.map((a) => ({ ...a }));
   const duplicate = next.findIndex((a) => Math.abs(a.q - point.q) < 1e-6);
   if (
     editIndex != null &&
     (!Number.isInteger(editIndex) || editIndex < 0 || editIndex >= next.length)
   )
-    throw Error("同步点已改变，请重新打开");
+    throw Error(tr("同步点已改变，请重新打开"));
   if (editIndex != null && duplicate >= 0 && duplicate !== editIndex)
-    throw Error("该小节或拍位已有同步点，请选择其他位置");
+    throw Error(tr("该小节或拍位已有同步点，请选择其他位置"));
   const index = editIndex ?? (duplicate < 0 ? next.length : duplicate);
   next[index] = { ...point };
   return validateAnchors(next);

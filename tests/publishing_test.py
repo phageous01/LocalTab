@@ -124,6 +124,26 @@ class PublishingTests(unittest.TestCase):
         self.assertFalse(any(path.endswith('.mp3') or path.endswith('project.json') for path in files))
         self.assertEqual(self.publisher.state()['score-test']['commit'], result['commit'])
 
+    def test_multi_instrument_preview_keeps_all_parts(self):
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(self.xml)
+        definition = copy.deepcopy(root.find('./part-list/score-part'))
+        definition.set('id', 'P2')
+        definition.find('part-name').text = 'Second Guitar'
+        root.find('part-list').append(definition)
+        part = copy.deepcopy(root.find('part'))
+        part.set('id', 'P2')
+        root.append(part)
+        text = ET.tostring(root, encoding='unicode')
+        def render(ident, _):
+            snapshot = self.publisher.draft(ident)
+            self.assertEqual(len(ET.fromstring(snapshot['xml']).findall('part')), 2)
+            (self.publisher.draft_path(ident) / 'score.pdf').write_bytes(self.pdf)
+        with patch.object(self.publisher, 'render_pdf', render):
+            result = self.publisher.prepare('ensemble', {'xml': text, 'revision': 'v1',
+                'project': {'title': 'Original duet'}}, 'http://localhost')
+        self.assertEqual(self.publisher.draft(result['draftId'])['xml'], text)
+
     def test_same_draft_retry_is_idempotent_and_update_keeps_url_and_manual_notes(self):
         first = self.publish()
         self.assertEqual(self.publish()['commit'], first['commit'])

@@ -100,7 +100,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed(): return
         path=unquote(urlparse(self.path).path)
         try:
-            if path=='/api/session': return self.json(200,{'app':'local-tab-studio','version':'0.8.0','token':TOKEN})
+            if path=='/api/session': return self.json(200,{'app':'local-tab-studio','version':'0.9.0','token':TOKEN})
             if path.startswith('/api/publish/status/'):
                 folder=self.folder(path.split('/')[-1])
                 return self.json(200,self.server.publisher.status(folder.name))

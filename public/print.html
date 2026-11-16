@@ -75,17 +75,25 @@
     </div>
     <div id="sheet"></div>
     <script type="module">
+      import { t, bindTranslations, setLanguage } from "./i18n.js";
       import { ScoreDocument, applyDisplaySettings } from "./editor-model.js";
       const params = new URLSearchParams(location.search);
+      if (params.has("lang")) setLanguage(params.get("lang"));
+      bindTranslations(document);
       const id = params.get("project"), draft = params.get("draft");
       window.localTabPrintState = { ready: false };
       try {
         const r = await fetch(draft
           ? "/api/publish/snapshot/" + encodeURIComponent(draft)
           : "/api/project/" + encodeURIComponent(id));
-        if (!r.ok) throw Error("项目不存在");
+        if (!r.ok) throw Error(t("项目不存在"));
         const data = await r.json();
         document.title = data.project.title;
+        const sheet = document.getElementById("sheet");
+        const titleMeasure = document.createElement("canvas").getContext("2d");
+        titleMeasure.font = "32px Georgia, serif";
+        const titleWidth = titleMeasure.measureText(data.project.title).width;
+        const titleSize = Math.min(32, 32 * (sheet.clientWidth - 80) / 0.85 / Math.max(1, titleWidth));
         const api = new alphaTab.AlphaTabApi(document.getElementById("sheet"), {
           core: {
             engine: "svg",
@@ -97,8 +105,9 @@
             layoutMode: alphaTab.LayoutMode.Page,
             startBar: 1,
             barCount: -1,
-            barsPerRow: 4,
+            barsPerRow: -1,
             scale: 0.85,
+            resources: { titleFont: `${titleSize}px Georgia, serif` },
           },
           player: { playerMode: alphaTab.PlayerMode.Disabled },
           notation: {
@@ -111,6 +120,12 @@
           api.settings,
         );
         applyDisplaySettings(score, new ScoreDocument(data.xml));
+        // Project titles include the instrument name when printing a part.
+        score.title = data.project.title;
+        // Percussion and piano must not acquire a synthetic guitar TAB staff.
+        for (const track of score.tracks)
+          for (const staff of track.staves)
+            staff.showTablature = !staff.isPercussion && staff.tuning.length > 0;
         api.error.on((e) => {
           window.localTabPrintState = { error: String(e.message || e) };
           document.getElementById("status").textContent = window.localTabPrintState.error;
@@ -119,11 +134,14 @@
           await document.fonts.ready;
           await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
           document.getElementById("status").textContent =
-            data.project.title + " · 完整乐谱 · A4";
+            data.project.title + t(" · 完整乐谱 · A4");
           document.getElementById("print").disabled = false;
           window.localTabPrintState = { ready: true, measures: score.masterBars.length };
         });
-        api.renderScore(score, [0]);
+        const requested = (params.get("tracks") || "").split(",").filter(Boolean).map(Number);
+        const tracks = requested.length ? [...new Set(requested)].filter((i) => Number.isInteger(i) && score.tracks[i])
+          : score.tracks.map((track) => track.index);
+        api.renderScore(score, tracks.length ? tracks : score.tracks.map((track) => track.index));
         document.getElementById("print").onclick = () => window.print();
       } catch (e) {
         window.localTabPrintState = { error: e.message };

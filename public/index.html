@@ -10,24 +10,70 @@
   <body>
     <header class="app-header">
       <div class="brand">
+        <button
+          id="toggleSidebar"
+          class="sidebar-toggle"
+          type="button"
+          aria-controls="librarySidebar"
+          aria-expanded="true"
+          aria-label="隐藏侧栏：本地谱库、乐器与小节导航"
+          title="隐藏侧栏"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 20 20"
+            fill="none"
+            aria-hidden="true"
+          >
+            <rect
+              x="2"
+              y="3"
+              width="16"
+              height="14"
+              rx="2"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <path d="M7 3v14" stroke="currentColor" stroke-width="1.5" />
+            <path
+              class="sidebar-arrow"
+              d="m13 7-3 3 3 3"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+          </svg>
+          <span>侧栏</span>
+        </button>
         <span class="brand-mark">♮</span>
         <div>LOCAL TAB STUDIO<small>你的乐谱，你的节奏。</small></div>
-        <span class="version">原型 0.8</span>
+        <span class="version">0.9</span>
       </div>
       <div class="header-actions">
+        <select id="languageSelect" aria-label="Interface language / 界面语言" title="Interface language / 界面语言" data-i18n-ignore>
+          <option value="zh-CN">简体中文</option>
+          <option value="en">English</option>
+        </select>
         <span id="saveState" role="status">正在打开…</span
         ><button id="saveButton" class="subtle">保存</button
         ><button id="exportXml">导出 MusicXML</button
         ><button id="printScore">打印 / PDF ↗</button
-        ><button id="publishScore" class="publish-button">发布 / Publish ↗</button>
+        ><button id="publishScore" class="publish-button">
+          发布 / Publish ↗
+        </button>
       </div>
     </header>
     <dialog id="publishDialog" aria-labelledby="publishTitle">
       <h2 id="publishTitle">发布到公开曲谱库</h2>
       <p id="publishDestination" class="muted"></p>
-      <p>发布 MusicXML 和分页 PDF，公开目录会同步更新。再次发布沿用同一个曲谱链接。</p>
+      <p>
+        发布 MusicXML 和分页
+        PDF，公开目录会同步更新。再次发布沿用同一个曲谱链接。
+      </p>
       <p id="publishProgress" role="status" aria-live="polite"></p>
-      <a id="publishPreviewLink" target="_blank" rel="noopener" hidden>打开 PDF 预览 ↗</a>
+      <a id="publishPreviewLink" target="_blank" rel="noopener" hidden
+        >打开 PDF 预览 ↗</a
+      >
       <iframe id="publishPreview" title="待发布的 PDF 预览" hidden></iframe>
       <div id="publishResult" hidden>
         <a id="publishedPage" target="_blank" rel="noopener">公开曲谱页面 ↗</a>
@@ -40,8 +86,12 @@
         <button id="publishConfirm" type="button" disabled>发布到公开库</button>
       </div>
     </dialog>
-    <div class="workspace">
-      <aside class="sidebar">
+    <div id="workspace" class="workspace">
+      <aside
+        id="librarySidebar"
+        class="sidebar"
+        aria-label="本地谱库、乐器与小节导航"
+      >
         <div class="section-label">本地谱库</div>
         <select id="projectSelect" aria-label="选择乐谱"></select>
         <div class="two-buttons">
@@ -51,6 +101,15 @@
         <input type="file" id="scoreFile" accept=".xml,.musicxml,.mxl" hidden />
         <div class="sidebar-divider"></div>
         <div class="section-label">乐器与调弦</div>
+        <label class="small-label" for="activePart">当前乐器</label>
+        <select id="activePart"></select>
+        <div id="partVisibility" class="part-list" aria-label="显示哪些乐器"></div>
+        <div class="part-actions">
+          <button id="showAllParts" type="button">显示全部</button>
+          <button id="showActivePart" type="button">仅当前</button>
+          <button id="addPart" type="button">＋ 添加乐器</button>
+        </div>
+        <p id="partEditHint" class="muted small"></p>
         <select id="preset" aria-label="乐器预设">
           <option value="bass5">五弦 Bass</option>
           <option value="bass4">四弦 Bass</option>
@@ -81,7 +140,6 @@
       <main>
         <section class="score-heading">
           <div>
-            <div class="eyebrow">LOCAL WORKSPACE / SCORE</div>
             <h1 id="scoreTitle">正在载入乐谱</h1>
             <div id="scoreMeta" class="muted"></div>
           </div>
@@ -127,27 +185,40 @@
         </section>
         <section class="timeline-card">
           <div class="timeline-top">
-            <span id="trackNote">合成预览</span
-            ><button id="addAudio" class="text-button">＋ 添加 MP3</button
-            ><input
-              type="file"
-              id="audioFile"
-              multiple
-              accept="audio/mpeg,.mp3"
-              hidden
-            />
+            <span id="trackNote">合成预览</span>
+            <div class="timeline-actions">
+              <button id="addAudio" class="text-button">＋ 添加 MP3</button>
+              <input
+                type="file"
+                id="audioFile"
+                multiple
+                accept="audio/mpeg,.mp3"
+                hidden
+              />
+              <button id="quickSync" class="text-button">＋ 添加同步点</button>
+              <button id="toggleSync" class="text-button">
+                同步点 <span id="anchorCount"></span> ▾
+              </button>
+              <button
+                id="toggleWaveform"
+                class="text-button"
+                type="button"
+                aria-controls="waveformPanel"
+                aria-expanded="false"
+              >
+                展开波形 ▾
+              </button>
+            </div>
           </div>
-          <canvas
-            id="waveform"
-            height="86"
-            aria-label="音频波形：点击跳转，拖动同步点微调"
-          ></canvas>
-          <div class="timeline-bottom">
-            <span>点击波形跳转 · 拖动圆点微调 · 点击圆点编辑</span>
-            <button id="quickSync" class="text-button">＋ 添加同步点</button>
-            <button id="toggleSync" class="text-button">
-              同步点 <span id="anchorCount"></span> ▾
-            </button>
+          <div id="waveformPanel" hidden>
+            <canvas
+              id="waveform"
+              height="86"
+              aria-label="音频波形：点击跳转，拖动同步点微调"
+            ></canvas>
+            <div class="timeline-bottom">
+              点击波形跳转 · 拖动圆点微调 · 点击圆点编辑
+            </div>
           </div>
         </section>
         <section id="syncPanel" class="sync-panel" hidden>
@@ -184,12 +255,42 @@
         ></section>
         <section class="sheet-card">
           <div class="sheet-toolbar">
-            <span><span class="status-dot"></span>五线谱 + TAB</span>
+            <span id="selectionSummary" role="status">五线谱 + TAB</span>
             <div class="sheet-actions">
+              <select id="playheadMode" aria-label="播放跟随方式" title="播放跟随方式">
+                <option value="smooth">平滑跟随</option>
+                <option value="step">逐音跳动</option>
+              </select>
+              <label class="score-zoom"
+                >缩放
+                <select id="scoreZoom" aria-label="谱面缩放">
+                  <option value="0.75">75%</option>
+                  <option value="0.85">85%</option>
+                  <option value="1">100%</option>
+                  <option value="1.1" selected>110%</option>
+                  <option value="1.25">125%</option>
+                  <option value="1.5">150%</option>
+                  <option value="1.75">175%</option>
+                  <option value="2">200%</option>
+                </select>
+              </label>
               <select id="scoreLayout" aria-label="谱面布局">
                 <option value="horizontal" selected>横向连续</option>
                 <option value="page">分页视图</option>
               </select>
+              <button
+                id="copyNotes"
+                title="复制选中音位的全部和弦音 · Ctrl/Cmd+C"
+              >
+                复制
+              </button>
+              <button
+                id="pasteNotes"
+                title="从选区起点覆盖相同时长；粘贴本页复制的片段，跨窗口请用 Ctrl/Cmd+V"
+                disabled
+              >
+                粘贴
+              </button>
               <button id="undo" title="Ctrl+Z">↶ 撤销</button
               ><button id="redo" title="Ctrl+Shift+Z">↷ 重做</button>
             </div>
@@ -202,64 +303,18 @@
             aria-label="TAB 编辑区：数字输入品位，上下选弦，左右选音"
           >
             <div id="score"></div>
+            <div id="scoreSelection" aria-hidden="true" hidden></div>
             <div id="scoreCursor" hidden></div>
           </div>
           <div class="sheet-footer">
-            <span id="selectionLabel">点击谱面或下方音符进行编辑</span
-            ><span>↑ ↓ 选弦 · ← → 选音 · 数字输入品位 · 空格播放</span>
-          </div>
-        </section>
-        <section class="editor-card">
-          <div class="panel-title">
-            <h2 id="measureLabel">第 1 小节</h2>
-            <span id="measureCheck" class="muted"></span>
-          </div>
-          <div id="noteStrip" class="note-strip"></div>
-          <div class="note-editor">
-            <label
-              >弦号<select
-                id="noteString"
-                aria-label="音符弦号"
-              ></select></label
-            ><label
-              >品位<input
-                id="noteFret"
-                type="number"
-                min="0"
-                max="36"
-                value="0" /></label
-            ><button id="applyNote" class="accent">写入音符</button
-            ><span class="editor-separator"></span
-            ><label
-              >时值<select id="noteDuration">
-                <option value="4">全音符</option>
-                <option value="2">二分</option>
-                <option value="1.5">附点四分</option>
-                <option value="1">四分</option>
-                <option value="0.75">附点八分</option>
-                <option value="0.5">八分</option>
-                <option value="0.375">附点十六分</option>
-                <option value="0.25">十六分</option>
-                <option value="0.125">三十二分</option>
-              </select></label
-            ><button id="setDuration">应用时值</button
-            ><button id="splitNote">拆为两音</button>
-          </div>
-          <div class="editor-bottom">
-            <div>
-              <button id="restNote">音符 / 休止</button
-              ><button id="deadNote">X 闷音</button
-              ><button id="tieNote">连接下一音</button>
-            </div>
-            <span class="muted small"
-              >换弦输入会添加和弦音；Delete
-              只删当前弦。时值作用于整个音位，休止按钮清空整个和弦。</span
+            <span id="selectionLabel"
+              >点击 TAB 输入音符，使用上方工具栏编辑</span
+            ><span
+              >拖动 / Shift+←→ 选段 · Ctrl/Cmd+C / V 复制粘贴 · Esc
+              取消选择</span
             >
           </div>
         </section>
-        <footer class="page-footer">
-          LOCAL TAB STUDIO <span>无需账号 · 无云端依赖 · 版本由你决定</span>
-        </footer>
       </main>
     </div>
     <audio id="audio" preload="metadata"></audio>
@@ -391,6 +446,22 @@
         </div>
       </form>
     </section>
+    <dialog id="partDialog" aria-labelledby="partDialogTitle">
+      <form id="partForm">
+        <h2 id="partDialogTitle">添加乐器</h2>
+        <label>乐器名称<input id="partName" maxlength="120" required /></label>
+        <label>乐器预设<select id="partPreset">
+          <option value="bass5">五弦 Bass</option>
+          <option value="bass4">四弦 Bass</option>
+          <option value="guitar6">六弦 Guitar</option>
+        </select></label>
+        <p class="muted small">新乐器沿用现有小节和拍号，先填充休止符。添加后可修改调弦。</p>
+        <div class="dialog-actions">
+          <button id="cancelPart" type="button">取消</button>
+          <button class="accent" type="submit">添加</button>
+        </div>
+      </form>
+    </dialog>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

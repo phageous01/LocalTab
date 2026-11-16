@@ -231,8 +231,6 @@ class Publisher:
 
     def prepare(self, project_id, data, base_url):
         config = self.config()
-        if len(ET.fromstring(data['xml']).findall('part')) != 1:
-            raise PublishError('当前 PDF 发布支持单乐器乐谱；请先导出所需分谱。')
         if not re.fullmatch('[a-zA-Z0-9_-]{1,100}', project_id):
             raise PublishError('项目编号无效。')
         state = self.state()
