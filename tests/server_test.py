@@ -4,6 +4,7 @@ import contextlib
 import http.client
 import io
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -62,6 +63,57 @@ class ServerTests(unittest.TestCase):
         with self.assertRaises(OSError):
             duplicate = server.LocalTabHTTPServer(('127.0.0.1', self.http.server_port), server.Handler)
             duplicate.server_close()
+
+    def test_library_dates_are_server_owned_and_updated_after_save(self):
+        with patch.object(server, 'timestamp_now', return_value='2026-01-01T10:00:00.000Z'):
+            ident=self.create()
+        saved=json.loads(self.request('GET', '/api/project/' + ident)[2])
+        self.assertEqual(saved['project']['createdAt'], '2026-01-01T10:00:00.000Z')
+        self.assertEqual(saved['project']['updatedAt'], saved['project']['createdAt'])
+        saved['project']['createdAt']='1999-01-01T00:00:00Z'
+        saved['project']['updatedAt']='2099-01-01T00:00:00Z'
+        with patch.object(server, 'timestamp_now', return_value='2026-02-01T10:00:00.000Z'):
+            status, _, body=self.request('PUT', '/api/project/' + ident, saved)
+        self.assertEqual(status, 200)
+        summary=json.loads(body)['summary']
+        self.assertEqual(summary['createdAt'], '2026-01-01T10:00:00.000Z')
+        self.assertEqual(summary['updatedAt'], '2026-02-01T10:00:00.000Z')
+        with patch.object(server, 'read_project', side_effect=AssertionError('Listing should not read notation')):
+            status, _, body=self.request('GET', '/api/projects')
+        self.assertEqual(status, 200)
+        self.assertEqual(next(item for item in json.loads(body) if item['id']==ident), summary)
+        self.assertEqual(set(summary), {'id', 'title', 'createdAt', 'updatedAt'})
+
+    def test_legacy_library_dates_do_not_rewrite_files_or_change_revisions(self):
+        ident=self.create();folder=server.LIBRARY/ident
+        metadata={'schemaVersion':1, 'title':'Legacy score', 'recordings':[],
+                  'sourceMetadata':{'importedAt':'2020-01-02T03:04:05+00:00'}}
+        (folder/'project.json').write_text(json.dumps(metadata), encoding='utf-8')
+        for name in ['project.json', 'score.musicxml']:
+            os.utime(folder/name, (1609459200, 1609459200))
+        before=server.read_project(folder)
+        status, _, body=self.request('GET', '/api/projects')
+        self.assertEqual(status, 200)
+        summary=next(item for item in json.loads(body) if item['id']==ident)
+        self.assertEqual(summary['createdAt'], '2020-01-02T03:04:05.000Z')
+        self.assertEqual(summary['updatedAt'], '2021-01-01T00:00:00.000Z')
+        self.assertEqual(server.read_project(folder), before)
+        # Old projects without import metadata also receive usable dates in the list.
+        metadata.pop('sourceMetadata')
+        (folder/'project.json').write_text(json.dumps(metadata), encoding='utf-8')
+        summary=server.project_summary(folder)
+        self.assertIsNotNone(server.timestamp(summary['createdAt']))
+        self.assertIsNotNone(server.timestamp(summary['updatedAt']))
+
+    def test_import_records_local_creation_time(self):
+        text=server.new_xml('Imported study', ['E1','A1','D2','G2'], 2)
+        with patch.object(server, 'timestamp_now', return_value='2026-03-04T05:06:07.000Z'):
+            status, _, body=self.request('POST', '/api/import', {
+                'name':'study.musicxml', 'data':base64.b64encode(text.encode()).decode()})
+        self.assertEqual(status, 201)
+        summary=json.loads(body)['summary']
+        self.assertEqual(summary['createdAt'], '2026-03-04T05:06:07.000Z')
+        self.assertEqual(summary['updatedAt'], summary['createdAt'])
 
     def test_publish_preview_endpoints_are_revision_checked_and_exclude_private_metadata(self):
         ident = self.create()
@@ -218,7 +270,9 @@ class ServerTests(unittest.TestCase):
                        [{'q': 0, 'seconds': 1}, {'q': 4, 'seconds': 3}], []):
             state['project']['recordings'][0]['anchors'] = points
             expected = state['project']
-            self.assertEqual(self.request('PUT', path, state)[0], 200)
+            status, _, response = self.request('PUT', path, state)
+            self.assertEqual(status, 200)
+            expected['updatedAt'] = json.loads(response)['summary']['updatedAt']
             state = json.loads(self.request('GET', path)[2])
             self.assertEqual(state['project'], expected)
             self.assertEqual(state['xml'], original_xml)

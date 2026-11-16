@@ -10,6 +10,7 @@ import { createToolbar } from "./toolbar.js";
 import { setupPublishing } from "./publish.js";
 import { copyNotes, pasteNotes } from "./clipboard.js";
 import { playheadX, followScrollPosition } from "./playhead.js";
+import { filterProjects, librarySortPreference, LIBRARY_PREFERENCE_KEY } from "./library.js";
 import {
   RecordingTimeMap,
   SyncDraft,
@@ -71,6 +72,7 @@ let toolbar,
   dragMoved = false,
   audioImportBusy = false;
 let visiblePartIds = [];
+let libraryItems = [], libraryMatches = [], librarySort = librarySortPreference();
 let smoothScrollPosition = null, smoothScrollTime = 0;
 let noteClipboard = "",
   dragSelection = null,
@@ -325,8 +327,13 @@ async function flushSave() {
     body: JSON.stringify({ xml, project: config, revision }),
   })
     .then((r) => {
+      if (r.summary) updateLibraryItem(r.summary);
       if (projectId === id) {
         revision = r.revision;
+        if (r.summary) {
+          project.createdAt = r.summary.createdAt;
+          project.updatedAt = r.summary.updatedAt;
+        }
         savedSeq = captureSeq;
         saveStatus(savedSeq === seq ? tr("已保存到本机") : tr("待保存…"));
       }
@@ -416,13 +423,59 @@ function history(back) {
   } else if (oldAnchors !== JSON.stringify(recording()?.anchors))
     alignAudioCursor();
 }
+function renderLibrary() {
+  libraryMatches = filterProjects(libraryItems, {
+    ...librarySort, query: $("projectSearch").value, locale: getLanguage(),
+  });
+  const currentVisible = libraryMatches.some((item) => item.id === projectId);
+  const formatter = new Intl.DateTimeFormat(getLanguage(), { dateStyle: "medium", timeStyle: "short" });
+  const date = (value) => Number.isFinite(Date.parse(value)) ? formatter.format(new Date(value)) : "—";
+  const options = libraryMatches.map((item) => {
+    const option = new Option(item.title, item.id);
+    option.title = tr`创建：${date(item.createdAt)} · 修改：${date(item.updatedAt)}`;
+    return option;
+  });
+  if (!currentVisible) {
+    const placeholder = new Option(libraryMatches.length ? tr("选择乐谱") :
+      libraryItems.length ? tr("没有匹配的乐谱") : tr("谱库为空"), "");
+    placeholder.disabled = true;
+    options.unshift(placeholder);
+  }
+  $("projectSelect").replaceChildren(...options);
+  $("projectSelect").value = currentVisible ? projectId : "";
+  $("projectSelect").disabled = !!syncDraft || audioImportBusy || !libraryMatches.length;
+  $("clearProjectSearch").hidden = !$("projectSearch").value;
+  $("librarySummary").textContent = tr`显示 ${libraryMatches.length} / ${libraryItems.length} 首`;
+  $("libraryCurrentHint").hidden = !projectId || currentVisible;
+}
+function updateLibraryItem(summary) {
+  const index = libraryItems.findIndex((item) => item.id === summary.id);
+  if (index < 0) libraryItems.push(summary);
+  else libraryItems[index] = { ...libraryItems[index], ...summary };
+  renderLibrary();
+}
+function setupLibrary() {
+  try { librarySort = librarySortPreference(JSON.parse(localStorage.getItem(LIBRARY_PREFERENCE_KEY))); }
+  catch { /* Use recently modified first when no preference can be read. */ }
+  $("projectSort").value = librarySort.field;
+  $("projectSortDirection").value = librarySort.direction;
+  $("projectSearch").oninput = renderLibrary;
+  $("clearProjectSearch").onclick = () => {
+    $("projectSearch").value = "";
+    renderLibrary();
+    $("projectSearch").focus();
+  };
+  const changeSort = () => {
+    librarySort = librarySortPreference({ field: $("projectSort").value, direction: $("projectSortDirection").value });
+    try { localStorage.setItem(LIBRARY_PREFERENCE_KEY, JSON.stringify(librarySort)); } catch { /* Optional. */ }
+    renderLibrary();
+  };
+  $("projectSort").onchange = $("projectSortDirection").onchange = changeSort;
+}
 async function listProjects() {
-  const items = await request("/api/projects");
-  $("projectSelect").replaceChildren(
-    ...items.map((p) => new Option(p.title, p.id)),
-  );
-  if (projectId) $("projectSelect").value = projectId;
-  return items;
+  libraryItems = await request("/api/projects");
+  renderLibrary();
+  return filterProjects(libraryItems, { ...librarySort, locale: getLanguage() });
 }
 async function loadProject(id) {
   await flushSave();
@@ -431,6 +484,7 @@ async function loadProject(id) {
   projectId = id;
   revision = data.revision;
   project = data.project;
+  if (data.summary) updateLibraryItem(data.summary);
   for (const r of project.recordings) r.anchors ??= [];
   model = new ScoreDocument(data.xml);
   restorePartView();
@@ -1193,6 +1247,7 @@ function syncLocks() {
     "play",
   ])
     $(id).disabled = !!syncDraft || audioImportBusy;
+  $("projectSelect").disabled ||= !libraryMatches.length;
 }
 function fillSyncLocation() {
   if (!syncDraft) return;
@@ -1394,6 +1449,7 @@ function setupSidebar() {
 
 function setup() {
   setupSidebar();
+  setupLibrary();
   setupParts();
   try {
     const mode = localStorage.getItem("localtab.playheadMode");
@@ -1422,6 +1478,7 @@ function setup() {
     }
     [...$("anchorRows").querySelectorAll("input")].forEach((input, i) => { input.value = anchors[i]; });
     $("languageSelect").value = getLanguage();
+    renderLibrary();
     $("play").setAttribute("aria-label", playing ? tr("暂停") : tr("播放"));
     if (!newTitleEdited) $("newTitle").value = tr("新乐谱");
     $("toggleWaveform").textContent = $("waveformPanel").hidden ? tr("展开波形 ▾") : tr("收起波形 ▴");
@@ -1649,7 +1706,10 @@ function setup() {
     renderScore();
   };
   $("projectSelect").onchange = (e) =>
-    loadProject(e.target.value).catch((e) => toast(e.message, true));
+    e.target.value && loadProject(e.target.value).catch((e) => {
+      renderLibrary();
+      toast(e.message, true);
+    });
   $("saveButton").onclick = () =>
     flushSave()
       .then(() => toast(tr("已保存到本地谱库")))
@@ -1895,6 +1955,7 @@ function setup() {
         method: "POST",
         body: JSON.stringify({ name: f.name, data: btoa(binary) }),
       });
+      $("projectSearch").value = "";
       await listProjects();
       await loadProject(result.id);
       toast(tr("乐谱已导入本地谱库"));
@@ -2001,6 +2062,7 @@ function setup() {
         }),
       });
       $("newDialog").close();
+      $("projectSearch").value = "";
       await listProjects();
       await loadProject(result.id);
     } catch (e) {

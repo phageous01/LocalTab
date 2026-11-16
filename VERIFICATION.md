@@ -91,3 +91,14 @@ audio and print behavior still need browser checks.
 只读检查了本地 **34 首多乐器谱、90 个声部**，其中 **52 个声部符合当前编辑条件**；切换声部不改变乐谱或全谱速度映射，检查没有重写导入文件。
 实际 PDF 预览服务生成了一份原创双乐器、四小节测试谱，输出为一页 A4；渲染后检查了两个乐器、节奏 TAB、标题与页码，未发布任何公开曲谱。
 主页面与打印页面的中文静态标签均有英文条目。本轮浏览器交互验证尚未完成：Windows Computer Use 因无法可靠确认 Chrome 地址而中止。上述测试不等同于实际交互和动画效果验证。
+
+## Library sorting and search / 谱库排序与搜索
+
+- **65 JavaScript tests and 28 Python HTTP/publishing tests passed.** New checks cover all six sort orders, natural numeric title order, Unicode/case-insensitive partial search, literal punctuation, missing dates and invalid saved preferences. HTTP checks cover server-owned timestamps, creation/import/save behavior, metadata-only listing and legacy reads that leave files and revisions unchanged.
+- Browser checks used the real **348-score library** in the in-app browser. Searching `TOE` returned six scores; title ascending/descending order, no matches, clear search, unchanged current score, English labels and preserved input, and created-ascending preference persistence after reload were verified. A screenshot confirmed the sidebar layout. This check did not edit existing scores.
+- All running local endpoints returned 348 library summaries with both timestamps after restart. The new save behavior is covered by isolated HTTP tests; browser checks did not save changes to user scores.
+
+**65 项 JavaScript 与 28 项 Python HTTP/发布测试通过。** 新增验证覆盖六种排序、曲名数字自然排序、忽略大小写与 Unicode 差异的片段搜索、标点、缺失时间和无效偏好；HTTP 测试验证服务端记录的时间、新建／导入／保存、仅读取元数据的列表，以及读取旧谱不改动文件或版本号。
+
+在内置浏览器中使用真实的 **348 首谱库**验证：`TOE` 匹配六首，名字正反序、零结果、清空搜索、保持当前谱子、切换英文时保留输入、刷新后保留创建时间正序均正常，并通过截图检查侧栏布局。没有编辑现有乐谱。
+重启后，各本地服务均返回带两个时间字段的 348 条记录；保存行为由隔离的 HTTP 测试验证，浏览器验证未向用户乐谱写入修改。

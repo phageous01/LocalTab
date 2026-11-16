@@ -93,7 +93,24 @@
         aria-label="本地谱库、乐器与小节导航"
       >
         <div class="section-label">本地谱库</div>
+        <div class="library-search">
+          <input id="projectSearch" type="search" placeholder="搜索曲名片段…" aria-label="搜索本地谱库" autocomplete="off" />
+          <button id="clearProjectSearch" type="button" aria-label="清除搜索" title="清除搜索" hidden>×</button>
+        </div>
+        <div class="library-sort">
+          <select id="projectSort" aria-label="谱库排序字段" title="谱库排序字段">
+            <option value="updatedAt">修改时间</option>
+            <option value="createdAt">创建时间</option>
+            <option value="title">名字</option>
+          </select>
+          <select id="projectSortDirection" aria-label="谱库排序方向" title="谱库排序方向">
+            <option value="desc">倒序 ↓</option>
+            <option value="asc">正序 ↑</option>
+          </select>
+        </div>
         <select id="projectSelect" aria-label="选择乐谱"></select>
+        <p id="librarySummary" class="library-summary" role="status" aria-live="polite"></p>
+        <p id="libraryCurrentHint" class="muted small" hidden>当前乐谱不在搜索结果中，仍保持打开。</p>
         <div class="two-buttons">
           <button id="newScore">＋ 新建</button
           ><button id="importScore">导入乐谱</button>

@@ -461,5 +461,20 @@ export const messages = {
   "无法对全谱应用此修改（{0}）：{1}": "Cannot apply this change to the full score ({0}): {1}",
   "{0} · {1} 小节 · {2}/{3} · ♩ = {4}": "{0} · {1} measures · {2}/{3} · ♩ = {4}",
   " · {0} 个乐器": " · {0} instruments",
-  "平滑跟随": "Smooth follow"
+  "平滑跟随": "Smooth follow",
+  "搜索曲名片段…": "Search part of a title…",
+  "搜索本地谱库": "Search local library",
+  "清除搜索": "Clear search",
+  "谱库排序字段": "Sort library by",
+  "谱库排序方向": "Library sort direction",
+  "修改时间": "Modified",
+  "创建时间": "Created",
+  "名字": "Name",
+  "倒序 ↓": "Desc ↓",
+  "正序 ↑": "Asc ↑",
+  "当前乐谱不在搜索结果中，仍保持打开。": "The current score is outside the search results and remains open.",
+  "没有匹配的乐谱": "No matching scores",
+  "谱库为空": "Library is empty",
+  "显示 {0} / {1} 首": "Showing {0} of {1} scores",
+  "创建：{0} · 修改：{1}": "Created: {0} · Modified: {1}"
 };

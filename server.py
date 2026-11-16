@@ -1,6 +1,7 @@
 """Local/LAN score workspace. Python 3.10+, standard library only."""
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
+from datetime import datetime, timezone
 from urllib.parse import urlparse, unquote, parse_qs
 import argparse, base64, hashlib, io, json, mimetypes, os, re, secrets, socket, threading, time, uuid, webbrowser, zipfile
 import xml.etree.ElementTree as ET
@@ -29,6 +30,39 @@ def read_project(folder):
     project=json.loads((folder/'project.json').read_text(encoding='utf-8'))
     rev=hashlib.sha256((xml+json.dumps(project,sort_keys=True)).encode()).hexdigest()
     return {'id':folder.name,'xml':xml,'project':project,'revision':rev}
+
+def timestamp(value):
+    """Normalize persisted ISO timestamps without trusting client-side clocks."""
+    if not isinstance(value, str): return None
+    try:
+        parsed=datetime.fromisoformat(value.replace('Z', '+00:00'))
+        if parsed.tzinfo is None: parsed=parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+    except (ValueError, OverflowError): return None
+
+def timestamp_now():
+    return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+
+def project_summary(folder, project=None):
+    """List metadata without loading notation or rewriting legacy projects."""
+    if project is None:
+        project=json.loads((folder/'project.json').read_text(encoding='utf-8'))
+    source=project.get('sourceMetadata')
+    source=source if isinstance(source, dict) else {}
+    created=timestamp(project.get('createdAt')) or timestamp(source.get('importedAt'))
+    updated=timestamp(project.get('updatedAt'))
+    if not created or not updated:
+        stats=[(folder/name).stat() for name in ('project.json', 'score.musicxml')]
+        if not created:
+            stat=folder.stat()
+            # Windows ctime is creation time on older supported Python versions.
+            born=getattr(stat, 'st_birthtime', None)
+            if born is None: born=stat.st_ctime if os.name == 'nt' else min(s.st_mtime for s in stats)
+            created=datetime.fromtimestamp(born, timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+        if not updated:
+            modified=max(s.st_mtime for s in stats)
+            updated=datetime.fromtimestamp(modified, timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+    return {'id':folder.name, 'title':project['title'], 'createdAt':created, 'updatedAt':updated}
 
 def valid_xml(text):
     if len(text)>20_000_000 or '<!ENTITY' in text.upper(): raise ValueError('乐谱过大或含不支持的实体定义')
@@ -109,13 +143,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json(200,{'xml':draft['xml'],'project':{'title':draft['info']['title']}})
             if path=='/api/projects':
                 items=[]
-                for folder in sorted(LIBRARY.iterdir()):
-                    if (folder/'project.json').exists():
-                        data=read_project(folder)
-                        items.append({'id':folder.name,'title':data['project']['title']})
+                with LOCK:
+                    for folder in sorted(LIBRARY.iterdir()):
+                        if (folder/'project.json').exists():
+                            items.append(project_summary(folder))
                 return self.json(200,items)
             if path.startswith('/api/project/'):
-                with LOCK: data=read_project(self.folder(path.split('/')[-1]))
+                with LOCK:
+                    folder=self.folder(path.split('/')[-1]); data=read_project(folder)
+                    data['summary']=project_summary(folder, data['project'])
                 return self.json(200,data)
             roots={'public':ROOT/'public','vendor':ROOT/'vendor','library':LIBRARY}
             if path.startswith('/api/publish/preview/'):
@@ -163,12 +199,14 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 folder=self.folder(path.split('/')[-1]); old=read_project(folder)
                 if data.get('revision')!=old['revision']:return self.json(409,{'error':'文件已在其他窗口或程序中更改。请先导出当前 MusicXML 备份，然后重新加载项目。'})
+                project['createdAt']=project_summary(folder, old['project'])['createdAt']
+                project['updatedAt']=timestamp_now()
                 backup=ROOT/'.local'/'backups'/folder.name; backup.mkdir(parents=True,exist_ok=True)
                 atomic(backup/f'{time.time_ns()}.json',json.dumps(old,ensure_ascii=False,indent=2))
                 atomic(folder/'score.musicxml',data['xml'])
                 atomic(folder/'project.json',json.dumps(project,ensure_ascii=False,indent=2)+'\n')
                 updated=read_project(folder)
-            self.json(200,{'revision':updated['revision']})
+            self.json(200,{'revision':updated['revision'], 'summary':project_summary(folder, updated['project'])})
         except (ValueError,KeyError,ET.ParseError) as e:self.json(400,{'error':str(e)})
         except Exception as e:self.json(500,{'error':str(e)})
     def do_POST(self):
@@ -217,8 +255,10 @@ class Handler(BaseHTTPRequestHandler):
             ident='score-'+uuid.uuid4().hex[:10]; folder=LIBRARY/ident
             folder.mkdir(parents=True); (folder/'audio').mkdir()
             atomic(folder/'score.musicxml',xml)
-            atomic(folder/'project.json',json.dumps({'schemaVersion':1,'title':title,'recordings':[]},ensure_ascii=False,indent=2)+'\n')
-            self.json(201,{'id':ident})
+            created=timestamp_now()
+            project={'schemaVersion':1,'title':title,'recordings':[], 'createdAt':created,'updatedAt':created}
+            atomic(folder/'project.json',json.dumps(project,ensure_ascii=False,indent=2)+'\n')
+            self.json(201,{'id':ident, 'summary':project_summary(folder, project)})
         except (ValueError,KeyError,ET.ParseError,zipfile.BadZipFile) as e:self.json(400,{'error':str(e)})
         except Exception as e:self.json(500,{'error':str(e)})
 

@@ -25,6 +25,7 @@ language choice; score titles, instrument names and notation text stay as writte
 - Multi-instrument scores: show/hide parts, choose the active instrument, and add bass/guitar parts.
 - MusicXML/MXL import, MusicXML export, and PDF through browser printing.
 - Local autosave, previous-version backups, and access over a home LAN.
+- Sort the library by modified time, created time or name, and search by title fragments.
 - Publish MusicXML and an automatically generated PDF to a public GitHub score library.
 
 ## Language, instruments and playback view
@@ -34,6 +35,23 @@ language choice; score titles, instrument names and notation text stay as writte
 - Edits and copy/paste affect the active part. Measure, meter and tempo changes apply to every part; if any part has an unsupported editing structure, the whole change is rejected. Hidden parts stay in MusicXML and are not deleted.
 - **Smooth follow / Note by note** sits above the score. Smooth mode moves a vertical line continuously between engraved notes using the recording's synchronization map. Step mode keeps the note selection box. You can switch during playback; the choice is remembered per browser. Smooth mode scrolls continuously with the playhead near the left third of the viewport; step mode keeps measure-based following.
 - Printing uses the currently visible instruments. Publishing creates a complete score PDF with all parts. The oscillator preview plays the active instrument; an MP3 still plays its original mix.
+
+## Library sorting and search
+
+In the sidebar, select **Modified**, **Created** or **Name**, then **Asc ↑** or
+**Desc ↓**. The default is most recently modified first. Your browser remembers
+the sorting preference, and saving a score updates its position in the list.
+
+Type any part of a title in **Search part of a title…** to filter immediately.
+Search ignores letter case and full-width/half-width differences; words separated
+by spaces must all occur in the title. The result count shows how many scores match.
+Use **×** to clear the search. Sorting and searching keep the current score open,
+even when it is outside the results.
+
+Created time is when the score was created or imported into the local library;
+modified time is its last local save. Older scores use their recorded import time
+and filesystem timestamps until they are next saved. These are not the original
+creation and modification dates on Flat.
 
 ## Installation and startup
 
