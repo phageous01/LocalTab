@@ -1,11 +1,12 @@
 # LocalTab
 
-[English](README.md) · [原创示例](examples/README.md) · [公开曲谱](https://github.com/phageous01/LocalTab-Scores)
+[English](README.md) · [原创示例](examples/README.zh-CN.md) · [公开曲谱](https://github.com/phageous01/LocalTab-Scores)
 
 LocalTab 是面向贝斯和吉他的本地 TAB 编辑器：编辑 MusicXML、把多个录音与乐谱对齐，
 放慢播放来记谱和练习。乐谱、音频和同步点都保存在运行服务的电脑上，不依赖 Flat 账号或云服务。
 
-**当前版本 0.9.0。** 顶栏可切换 **简体中文 / English**，浏览器会记住语言偏好。曲名、乐器名称与谱面文字保持原文。
+**当前版本 0.9.0。** 界面支持中文和英文。顶栏选择 **简体中文**，即可使用本说明中的控件名称。
+浏览器会记住语言偏好；曲名、乐器名称与谱面文字保持原文。
 
 ## 功能
 
@@ -33,7 +34,9 @@ LocalTab 是面向贝斯和吉他的本地 TAB 编辑器：编辑 MusicXML、把
 ## 安装与启动
 
 服务端电脑需要 **Python 3.10 或以上版本**，客户端使用现代浏览器，主要面向 Chrome、Edge。
-Node.js 只在运行 JavaScript 测试时需要。无需 npm install、编译、数据库或 CDN：
+Node.js 只在运行 JavaScript 测试时需要。发布功能还需在服务端安装 GitHub CLI、
+可选的 Python PDF 依赖和 Chrome/Edge，见[发布设置](docs/PUBLISHING.zh-CN.md)。
+无需 npm install、编译、数据库或 CDN：
 渲染库与字体已放在 `vendor/` 中，可以离线运行。
 
 在 GitHub 点击 **Code → Download ZIP**，下载解压；或者使用 Git：
@@ -60,7 +63,7 @@ python3 server.py --open
 
 访问 [http://127.0.0.1:8767](http://127.0.0.1:8767)。使用期间保持终端运行；
 在终端按 **Ctrl+C** 可停止服务。全新安装会打开新建乐谱窗口，
-也可取消后导入仓库内的[原创示例](examples/README.md)。
+也可取消后导入仓库内的[原创示例](examples/README.zh-CN.md)。
 
 ### 局域网访问
 
@@ -75,7 +78,7 @@ python3 server.py --open
 python server.py --host 127.0.0.1 --port 8767 --open
 ```
 
-本原型用于可信任的局域网，没有面向公网的账号和权限系统。即使从另一台设备操作，
+LocalTab 用于可信任的局域网，没有面向公网的账号和权限系统。即使从另一台设备操作，
 文件也保存在服务端电脑上。GitHub 用于存放代码和曲谱下载文件，不会运行这个 Python 服务。
 
 ## 完整使用流程：新建、同步、记谱
@@ -94,7 +97,7 @@ python server.py --host 127.0.0.1 --port 8767 --open
 5. 点击 TAB 音符位，按 **↑/↓** 选弦，直接敲品位数字。10–36 品请快速连续输入两位数字。
    输入和弦时保持当前音符位不变，换到其他弦继续输入；各弦共享同一时值。
    在工具栏中选择时值或奏法。
-6. 按 **空格** 播放/暂停，在 **练习速度** 输入如 0.75。随时暂停修改，播放时横向视图跟随当前小节。
+6. 按 **空格** 播放/暂停，在 **练习速度** 输入如 0.75。随时暂停修改；选择 **平滑跟随** 可连续滚动，选择 **逐音跳动** 则按小节移动视图。
 7. 等待保存状态显示完成，或点击 **保存**。修改会在短暂延迟后自动保存。
    下次打开会恢复录音和同步信息。**导出 MusicXML** 输出谱面；**打印 / PDF** 打开打印页，
    然后在浏览器打印窗口选择“另存为 PDF”。
@@ -138,7 +141,7 @@ python server.py --host 127.0.0.1 --port 8767 --open
 | `Ctrl/Cmd+S` | 保存 |
 | `Ctrl/Cmd+Z`、`Ctrl/Cmd+Shift+Z` | 撤销 / 重做 |
 
-**小节 / Measures** 工具栏可修改拍号和速度。**文字 / 音色** 可写入 pick、clean 等谱面标记，
+**小节** 工具栏可修改拍号和速度。**文字 / 音色** 可写入 pick、clean 等谱面标记，
 不会给录音应用音效。调弦从粗弦到细弦输入，如 `B0 E1 A1 D2 G2`，
 并选择保持品位或保持实际音高。
 
@@ -167,7 +170,7 @@ LocalTab/
   vendor/                     渲染库、字体和测试用 XML 依赖
   library/<project-id>/       自动创建；Git 默认忽略
     score.musicxml            乐谱
-    project.json              录音引用和同步 metadata
+    project.json              录音引用和同步元数据
     audio/*.mp3               导入的录音
   .local/backups/             之前保存的版本；Git 默认忽略
 ```
@@ -176,11 +179,11 @@ LocalTab/
 新保存的同步算法标记为 `tempo-map-v1`，音频文件通过项目文件夹内的相对路径引用。
 
 请备份**整个 `library/` 文件夹**：单独导出的 MusicXML 不包含 MP3 和同步信息。
-`.local/backups/` 保存之前的 XML/metadata 快照，不会复制 MP3。
+`.local/backups/` 保存之前的 XML/元数据快照，不会复制 MP3。
 多个窗口编辑不等于实时协作；检测到保存冲突时会拒绝覆盖，请先导出未保存的内容，再重新加载。
 
 代码仓库忽略个人谱库、录音、日志及本地配置。公开 MusicXML 放在独立的
-[LocalTab-Scores](https://github.com/phageous01/LocalTab-Scores)。点击 **发布 / Publish** 可发布到公开库，
+[LocalTab-Scores](https://github.com/phageous01/LocalTab-Scores)。点击 **发布** 可发布到公开库，
 普通“保存”仍**不会自动上传**。详见[发布设置与使用方式](docs/PUBLISHING.zh-CN.md)。
 
 ## 当前限制

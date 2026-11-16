@@ -2,19 +2,25 @@
 
 [简体中文](PUBLISHING.zh-CN.md) · [Back to LocalTab](../README.md)
 
-**发布 / Publish** on the score page publishes the current score to a configured
+**Publish** on the score page publishes the current score to a configured
 public GitHub repository, with both MusicXML and a complete paginated PDF.
 
 ## Use it
 
-1. Click **发布 / Publish**. LocalTab saves pending edits and generates a PDF preview.
-2. Check the score, PDF and destination repository, then click **发布到公开库**.
+1. Click **Publish**. LocalTab saves pending edits and generates a PDF preview.
+2. Check the score, PDF and destination repository, then click **Publish to library**.
 3. The success panel provides the public score-page, PDF and MusicXML links.
 
-Publishing creates or updates `scores/<stable-project-id>/score.musicxml`,
+Publishing creates or updates `scores/<score-name>/score.musicxml`,
 `score.pdf` and the score's README, plus `catalog.json` and the English/Chinese
-root indexes. Use the score-page URL on other platforms; subsequent updates keep
-that address. GitHub can preview the PDF without a notation app.
+root indexes. New folder names are based on score titles, with a suffix if needed
+to distinguish duplicates. Existing published paths stay stable, even if a score
+is renamed later. Use the score-page URL on other platforms. GitHub can preview
+the PDF without a notation app.
+
+Multi-instrument scores include all parts in both MusicXML and the full-score PDF,
+including instruments hidden in the editor. The regular **Print / PDF** action
+uses only the currently visible parts.
 
 MusicXML, PDF and indexes are updated in **one commit**. Audio and private project
 metadata are not uploaded. Manual score-page notes outside LocalTab's marked
@@ -22,7 +28,7 @@ section are retained. A concurrent repository update is preserved and retried;
 there is no force push. Retrying a completed preview does not create another commit.
 
 The preview captures one saved revision. If another window edits the score before
-publication, regenerate the preview. Ordinary **保存 / Save** remains local; it
+publication, regenerate the preview. Ordinary **Save** remains local; it
 does not publish automatically. Closing a preview before publishing leaves the
 public repository unchanged. The optional feature does not use GitHub Actions.
 
@@ -55,7 +61,7 @@ Only the server computer needs these dependencies; LAN clients use their browser
    }
    ```
 
-5. Restart LocalTab. Click **发布 / Publish** on a score to verify setup.
+5. Restart LocalTab. Click **Publish** on a score to verify setup.
 
 Use `python3` or `py -3` instead of `python` where appropriate. On a machine where
 global package installation is undesirable, `python -m pip install --target
@@ -82,13 +88,8 @@ tokens are never sent to the browser or included in score commits.
 - Existing different score at the same path: LocalTab refuses to overwrite an
   unrelated entry. Restore the installation's publishing state when migrating.
   An identical existing MusicXML can be adopted and gain a PDF automatically.
-- Publishing currently supports **single-part scores**; multi-part scores are
-  rejected so the PDF cannot silently omit instruments. PDF generation reuses the
-  A4 print view, including rhythmic TAB and the renderer's attribution.
+- PDF generation uses the A4 print view, including all instruments, rhythmic TAB
+  where applicable, and the renderer's attribution.
 
 As with the existing LAN editor, every device with access to this no-login server
 can use its configured publishing feature. Keep the server on your trusted LAN.
-
-Multi-instrument scores publish all parts in both MusicXML and the full-score PDF. Hidden parts are included; the normal Print / PDF action uses the currently visible parts instead.
-
-多乐器乐谱发布时，MusicXML 与完整 PDF 都包含全部声部，包括界面中暂时隐藏的乐器；普通“打印 / PDF”则按当前勾选的乐器输出。

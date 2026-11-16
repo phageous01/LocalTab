@@ -7,7 +7,9 @@ align recordings to the score, and slow down playback while transcribing. Scores
 audio and synchronization points stay on the computer running the server.
 No Flat account or cloud service is required.
 
-**Version 0.9.0.** Switch between **简体中文 / English** in the top bar. The UI language is remembered in your browser. Score titles, instrument names and notation text stay as written.
+**Version 0.9.0.** The interface supports Chinese and English. Select **English**
+in the top bar to use the control names in this guide. The browser remembers your
+language choice; score titles, instrument names and notation text stay as written.
 
 ## Features
 
@@ -78,51 +80,53 @@ Use the explicit `http://` address. For access from this computer only:
 python server.py --host 127.0.0.1 --port 8767 --open
 ```
 
-This prototype is for a trusted local network; it has no internet-facing account
+LocalTab is intended for a trusted local network; it has no internet-facing account
 or permission system. Files are always saved on the server computer, including
 when editing from another device. GitHub hosts the code and downloadable scores;
 it does not run this Python service.
 
 ## First session: create, synchronize and transcribe
 
-1. Click **＋ 新建** (New). Enter title, instrument, tempo, time signature and measure
+1. Click **＋ New**. Enter title, instrument, tempo, time signature and measure
    count. Tempo is **quarter notes/minute**: for 6/8 at dotted-quarter = 80, enter 120.
-   Initial measures: 1–200; tempo: 20–300. Alternatively, **导入乐谱** (Import score)
+   Initial measures: 1–200; tempo: 20–300. Alternatively, **Import score**
    accepts `.musicxml`, `.xml` and compressed `.mxl` files.
-2. Click **＋ 添加 MP3** (Add MP3) and select one or several files. Choose the active
-   recording in **音频来源** (Audio source). Recordings switch; they do not mix.
-3. Listen for a clear measure boundary and pause. Click **＋ 添加同步点** (Add sync
-   point). The dialog freezes the current recording timestamp. Enter the matching
-   measure, defaulting to its beginning, then **保存同步点** (Save sync point).
+2. Click **＋ Add MP3** and select one or several files. Choose the active
+   recording in **Audio source**. Recordings switch; they do not mix.
+3. Listen for a clear measure boundary and pause. Click **＋ Add sync point**.
+   The dialog freezes the current recording timestamp. Enter the matching
+   measure, defaulting to its beginning, then **Save sync point**.
    Selecting a different measure in this dialog does not move the timestamp.
 4. Add a second point later, then more where the performance drifts. Click
-   **展开波形** (Expand waveform), then click a point on the timeline to edit it or drag it to fine-tune time. Open **同步点** to copy
-   points from another recording or shift all timestamps by milliseconds. Calibrate
-   each MP3 separately; copied points are a starting point.
+   **Show waveform**, then click a point on the timeline to edit it or drag it to
+   fine-tune time. Open **Sync points** to copy points from another recording or
+   shift all timestamps by milliseconds. Calibrate each MP3 separately; copied
+   points are a starting point.
 5. Click a TAB position, select the string with **↑/↓**, and type a fret number.
    Type two digits promptly for frets 10–36. To form a chord, stay at the same
    position, switch strings, and enter more frets. Chord tones share a duration.
    Select durations and techniques in the toolbar.
-6. **Space** plays/pauses. Set **练习速度** (Practice speed), for example 0.75. Pause
-   whenever you want to edit. The horizontal view follows playback by measure.
-7. Wait for the saved indicator or click **保存** (Save). Changes autosave after a
-   short delay. Reopening restores recordings and synchronization. **导出 MusicXML**
-   exports notation; **打印 / PDF** opens the print view for browser Save as PDF.
+6. **Space** plays/pauses. Set **Practice speed**, for example 0.75. Pause
+   whenever you want to edit. Choose **Smooth follow** for continuous scrolling or
+   **Note by note** for measure-based following.
+7. Wait for the saved indicator or click **Save**. Changes autosave after a
+   short delay. Reopening restores recordings and synchronization. **Export MusicXML**
+   exports notation; **Print / PDF** opens the print view for browser Save as PDF.
 
-Use **侧栏** (Sidebar) in the top-left corner to hide or show the library, tuning,
+Use **Sidebar** in the top-left corner to hide or show the library, tuning,
 and measure navigation. Hiding it gives the score more room; the browser remembers
 your choice. Editing happens directly in TAB and the top toolbar, including
-**拆为两音** (Split in two) under Notes.
+**Split in two** under Notes.
 
 The score uses the full available page width, with compact controls above it.
 The waveform starts collapsed; playback and sync-point controls remain available.
-Use **缩放** (Zoom) above the score to choose 75%–200% (default 110%); the browser
+Use **Zoom** above the score to choose 75%–200% (default 110%); the browser
 remembers your choice. Zoom changes only the editor view, not exported scores or PDFs.
 
 ### Select, copy and paste
 
 - Drag across notes, or click the start and use **Shift+Left / Right** to extend or shrink the selection. **Shift+click** also sets its endpoint. Dragging at the score's edge scrolls automatically. Green highlights and a count show the selection; **Esc** clears it.
-- Use **Ctrl+C / Ctrl+V** (**Cmd+C / Cmd+V** on Mac), or the **复制 / 粘贴** (Copy / Paste) buttons above the score. With no range selected, Copy includes the entire current chord.
+- Use **Ctrl+C / Ctrl+V** (**Cmd+C / Cmd+V** on Mac), or the **Copy / Paste** buttons above the score. With no range selected, Copy includes the entire current chord.
 - Fragments retain chords, rests, durations, dots, triplets, dynamics and note-level techniques. Connections retain only endpoints inside the selection. Separate text directions, time signatures, tempo and recording sync points are not copied.
 - Paste starts at the current position or the beginning of the selection and replaces the fragment's duration without shifting later music. Sustained notes crossing bar lines are split and tied. Extra bars are added when needed; existing END sync points follow the new score end. **Ctrl/Cmd+Z** undoes the whole paste; **Ctrl/Cmd+Shift+Z** redoes it.
 - Copy between scores preserves string and fret positions, recalculating pitches for the destination tuning. Pasting to an instrument missing a required string is refused without changing the score.
@@ -151,7 +155,7 @@ replacement modes; protected mode refuses to overwrite following notes.
 | `Ctrl/Cmd+S` | Save |
 | `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z` | Undo / redo |
 
-Use **小节 / Measures** for meter and tempo. **文字 / 音色** adds printed text such
+Use **Measure** for meter and tempo. **Text / Tone** adds printed text such
 as “pick” or “clean”; it does not apply an audio effect. Enter tuning from the
 thickest/lowest string to the thinnest/highest, e.g. `B0 E1 A1 D2 G2`, and choose
 whether to preserve frets or sounding pitches.
@@ -199,7 +203,7 @@ saves are rejected. Export unsaved work before reloading after a conflict.
 
 This code repository excludes personal libraries, audio, logs and local settings.
 Public MusicXML lives separately in [LocalTab-Scores](https://github.com/phageous01/LocalTab-Scores).
-Use **发布 / Publish** to publish explicitly. Ordinary saving still does **not** push
+Use **Publish** to publish explicitly. Ordinary saving still does **not** push
 to GitHub. See [publishing setup and usage](docs/PUBLISHING.md).
 
 ## Current limits
@@ -211,7 +215,7 @@ to GitHub. See [publishing setup and usage](docs/PUBLISHING.md).
   basic; technique marks do not promise realistic instrument playback.
 - MusicXML annotation appearance can vary between applications. PDF uses browser printing.
 - Repeat-aware audio navigation, full engraving and collaborative editing are not
-  complete. This prototype does not reproduce all Flat features.
+  complete. LocalTab does not reproduce all Flat features.
 
 ## Development and verification
 
