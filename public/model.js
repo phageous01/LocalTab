@@ -141,7 +141,8 @@ function restNodes(doc, q) {
 }
 
 export class ScoreDocument {
-  constructor(xml, activePartId = null) {
+  constructor(xml, activePartId = null, { graceFragment = false } = {}) {
+    this.graceFragment = graceFragment;
     this.activePartId = activePartId;
     this.doc = new DOMParser().parseFromString(xml, "application/xml");
     if (all(this.doc, "parsererror").length) throw Error(tr("MusicXML 无法解析"));
@@ -186,7 +187,6 @@ export class ScoreDocument {
       [4, 5, 6].includes(this.tuning.length) &&
       !all(this.part, "backup").length &&
       !all(this.part, "forward").length &&
-      !all(this.part, "grace").length &&
       !all(this.part, "repeat").length &&
       !all(this.part, "sound").some(
         (s) => s.hasAttribute("dacapo") || s.hasAttribute("dalsegno"),
@@ -235,7 +235,9 @@ export class ScoreDocument {
           mi,
           ni,
           q: isChord && previous ? previous.q : q + offset,
-          duration: Number(txt(n, "duration", 0)) / div,
+          grace: !!child(n, "grace"),
+          graceSlash: child(n, "grace")?.getAttribute("slash") === "yes",
+          duration: child(n, "grace") ? 0 : Number(txt(n, "duration", 0)) / div,
           rest: !!child(n, "rest"),
           midi,
           string: Number(txt(te, "string", 1)),
@@ -257,10 +259,14 @@ export class ScoreDocument {
             (e) => e.nodeName === "tie" && e.getAttribute("type") === "stop",
           ),
         };
+        if (event.grace && (event.rest || event.tuplet || child(n, "duration") ||
+            child(n, "grace").hasAttribute("make-time") || event.tieStart || event.tieStop))
+          this.editable = false;
         if (isChord && previous) {
           if (
             previous.rest ||
             event.rest ||
+            previous.grace !== event.grace || previous.graceSlash !== event.graceSlash ||
             Math.abs(previous.duration - event.duration) > 1e-6 ||
             previous.type !== event.type ||
             previous.dots !== event.dots ||
@@ -279,6 +285,7 @@ export class ScoreDocument {
         }
       }
       measure.actualLength = offset;
+      if (!this.graceFragment && measure.notes.at(-1)?.grace) this.editable = false;
       if (!measure.notes.length) {
         // Empty imported bars still need a selectable viewing position. This is
         // an in-memory placeholder only; the original MusicXML stays untouched.
@@ -325,8 +332,9 @@ export class ScoreDocument {
     return tone;
   }
   adjacentTone(event, direction) {
-    const index = this.notes.indexOf(this.event(event.mi, event.ni));
-    return this.notes[index + direction]?.tones.find(
+    const beats = event.grace ? this.notes : this.notes.filter((n) => !n.grace);
+    const index = beats.indexOf(this.event(event.mi, event.ni));
+    return beats[index + direction]?.tones.find(
       (t) => !t.rest && t.string === event.string,
     );
   }
@@ -392,6 +400,11 @@ export class ScoreDocument {
   toggleRest(mi, ni) {
     this.requireEdit();
     const e = this.event(mi, ni);
+    if (e.grace) {
+      for (const tone of e.tones) tone.el.parentNode.removeChild(tone.el);
+      this.refresh();
+      return;
+    }
     if (e.rest) {
       this.setFret(mi, ni, this.tuning.length, 0);
       return;
@@ -455,6 +468,7 @@ export class ScoreDocument {
     this.requireEdit();
     const e = this.requireTone(mi, ni, string),
       next = this.adjacentTone(e, 1);
+    if (e.grace) throw Error(tr("倚音请使用连奏线、击弦或勾弦连接主音"));
     if (e.tieStart) {
       setTie(e.el, "start", false);
       if (next) setTie(next.el, "stop", false);
@@ -492,12 +506,19 @@ export class ScoreDocument {
           Math.round((Number(offset.textContent) * 480) / m.div),
         );
       for (const e of m.notes.flatMap((b) => b.tones))
-        set(e.el, "duration", Math.round(e.duration * 480));
+        if (!e.grace) set(e.el, "duration", Math.round(e.duration * 480));
     }
     this.refresh();
   }
   setDuration(mi, ni, duration) {
     this.requireEdit();
+    if (this.event(mi, ni).grace) {
+      for (const tone of this.event(mi, ni).tones) {
+        setDurationNode(tone.el, duration); remove(tone.el, "duration");
+      }
+      this.refresh();
+      return;
+    }
     if (this.event(mi, ni).tuplet) throw Error(tr("请使用工具栏修改连音组时值"));
     this.normalizeDivisions();
     const m = this.measures[mi],

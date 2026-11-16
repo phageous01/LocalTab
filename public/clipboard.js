@@ -55,7 +55,9 @@ function cleanConnections(groups, nextNumber = null) {
         ["stop", -1, "start"],
       ]) {
         if (!isTie(note, type)) continue;
-        const match = groups[i + offset]?.find(
+        let neighbor = i + offset;
+        while (groups[neighbor]?.some((n) => child(n, "grace"))) neighbor += offset;
+        const match = groups[neighbor]?.find(
           (n) => sameTone(note, n) && isTie(n, other),
         );
         if (!match) setTie(note, type, false);
@@ -73,7 +75,8 @@ function normalizedNote(tone) {
     }
   };
   stripComments(n);
-  set(n, "duration", ticks(tone.duration));
+  if (tone.grace) remove(n, "duration");
+  else set(n, "duration", ticks(tone.duration));
   set(n, "voice", 1);
   for (const tag of ["beam", "staff", "instrument"]) remove(n, tag);
   for (const attr of [
@@ -147,7 +150,7 @@ export function readNotes(text) {
   )
     throw Error(tr("音符片段无法解析"));
   const noteChildren = new Set(
-    "chord pitch rest duration tie voice type dot accidental time-modification stem notehead notations lyric play".split(
+    "grace chord pitch rest duration tie voice type dot accidental time-modification stem notehead notations lyric play".split(
       " ",
     ),
   );
@@ -171,6 +174,7 @@ export function readNotes(text) {
     .join("");
   const model = new ScoreDocument(
     `<score-partwise version="4.0"><part id="P1"><measure number="1"><attributes><divisions>480</divisions><staff-details>${tuning}</staff-details></attributes>${data.xml}</measure></part></score-partwise>`,
+    null, { graceFragment: true },
   );
   model.requireEdit();
   if (!model.notes.length || model.notes.length > 10000)
@@ -182,11 +186,11 @@ export function readNotes(text) {
         tone.actualNotes;
       if (
         !Number.isInteger(ticks(tone.duration)) ||
-        tone.duration <= 0 ||
+        (tone.grace ? tone.duration !== 0 : tone.duration <= 0) ||
         tone.duration > 128 ||
         Math.abs(tone.duration * 480 - ticks(tone.duration)) > 1e-6 ||
         !Number.isFinite(duration) ||
-        Math.abs(duration - tone.duration) > 1e-6 ||
+        (!tone.grace && Math.abs(duration - tone.duration) > 1e-6) ||
         tone.dots > 2 ||
         (tone.tuplet && (tone.actualNotes !== 3 || tone.normalNotes !== 2)) ||
         (!tone.rest &&
@@ -275,6 +279,9 @@ function sliceBeat(nodes, offset, length) {
       }
       if (position > 0) setTie(n, "stop", false);
       if (position + rhythm.ticks < total) setTie(n, "start", false);
+      const articulations = xml.child(xml.child(n, "notations"), "articulations");
+      if (position > 0) for (const tag of ["scoop", "plop"]) remove(articulations, tag);
+      if (position + rhythm.ticks < total) for (const tag of ["doit", "falloff"]) remove(articulations, tag);
       for (const tag of PAIRS)
         for (const mark of all(n, tag)) {
           if (
@@ -371,14 +378,15 @@ export function pasteNotes(target, atIndex, text) {
         add(p, "octave", Math.floor(midi / 12) - 1);
         remove(n, "accidental");
       }
-  const original = work.notes.map((b) => ({
+  const original = work.notes.map((b, order) => ({
+    order,
     q: ticks(b.q),
     duration: ticks(b.duration),
     nodes: b.tones.map((t) => t.el.cloneNode(true)),
   }));
   const events = [];
   for (const e of original) {
-    if (e.q < start || e.q >= end) events.push(e);
+    if (e.q < start || e.q >= end || (e.duration === 0 && e.q === start && e.order < atIndex)) events.push(e);
     else if (e.q + e.duration > end) {
       let q = end;
       for (const nodes of sliceBeat(
@@ -387,21 +395,26 @@ export function pasteNotes(target, atIndex, text) {
         e.q + e.duration - end,
       )) {
         const duration = Number(txt(nodes[0], "duration"));
-        events.push({ q, duration, nodes });
+        events.push({ q, duration, nodes, order: e.order });
         q += duration;
       }
     }
   }
   let q = start;
-  for (const nodes of incoming) {
+  for (const [i, nodes] of incoming.entries()) {
     const duration = Number(txt(nodes[0], "duration"));
-    events.push({ q, duration, nodes });
+    events.push({ q, duration, nodes, order: atIndex - 0.5 + i / (incoming.length + 1) / 4 });
     q += duration;
   }
-  events.sort((a, b) => a.q - b.q);
+  events.sort((a, b) => a.q - b.q || a.order - b.order);
   const byBar = work.measures.map(() => []);
   let barIndex = 0;
   for (const e of events) {
+    if (e.duration === 0) {
+      while (barIndex + 1 < work.measures.length && ticks(work.measures[barIndex + 1].q) <= e.q) barIndex++;
+      byBar[barIndex].push(e.nodes);
+      continue;
+    }
     let offset = 0,
       previous = null;
     while (offset < e.duration) {
@@ -436,8 +449,11 @@ export function pasteNotes(target, atIndex, text) {
     throw Error(tr("粘贴无法保持小节时值，未修改乐谱"));
   target.doc = work.doc;
   target.refresh();
-  const first = target.notes.findIndex((n) => ticks(n.q) === start);
-  const last = target.notes.findLastIndex((n) => ticks(n.q) < end);
+  const first = target.notes.findIndex((n) => ticks(n.q) === start) +
+    original.filter((e) => e.q === start && e.duration === 0 && e.order < atIndex).length;
+  let trailingGrace = 0;
+  for (const beat of [...clip.notes].reverse()) { if (!beat.grace) break; trailingGrace++; }
+  const last = length ? target.notes.findLastIndex((n) => ticks(n.q) < end) + trailingGrace : first + clip.notes.length - 1;
   return {
     first,
     last,

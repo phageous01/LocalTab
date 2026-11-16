@@ -145,6 +145,11 @@ export function createToolbar(host, hooks) {
     () => exec((m, a, b) => m.split(a, b)),
     "将当前音位（包括和弦）均分为两个音位，保持总时长",
   );
+  btn("notes", "添加倚音", "♪⁺", () => exec((m, a, b, string) => {
+    hooks.position(a, m.addGrace(a, b, string));
+  }), "在当前音前添加倚音，再输入品位 · G");
+  btn("notes", "倚音斜线", "♪̸", () => exec((m, a, b) => m.toggleGraceSlash(a, b)),
+    "切换带斜线 / 不带斜线的倚音", "grace-slash");
   const modeLabel = document.createElement("label");
   modeLabel.className = "tool-field";
   modeLabel.innerHTML =
@@ -183,6 +188,12 @@ export function createToolbar(host, hooks) {
     "连接选中范围或下一音 · /",
     "slide",
   );
+  for (const [label, symbol, tag, help] of [
+    ["低处滑入", "↗●", "scoop", "从未指定的低品滑入当前音"],
+    ["高处滑入", "↘●", "plop", "从未指定的高品滑入当前音"],
+    ["向低滑出", "●↘", "falloff", "从当前音向低品滑出，不指定终点"],
+    ["向高滑出", "●↗", "doit", "从当前音向高品滑出，不指定终点"],
+  ]) btn("tab", label, symbol, () => exec((m, a, b, string) => m.toggleOpenSlide(a, b, tag, string)), help, tag);
   for (const [label, symbol, tag] of [
     ["掌根制音", "P.M.", "palm"],
     ["持续发音", "L.R.", "let-ring"],
@@ -356,8 +367,9 @@ export function createToolbar(host, hooks) {
       for (const b of host.querySelectorAll(".tool-button")) {
         b.disabled = !s.model.editable;
         const mark = b.dataset.mark;
+        if (mark === "grace-slash") b.disabled ||= !e.grace;
         const enabled =
-          mark === "dots"
+          mark === "grace-slash" ? e.graceSlash : mark === "dots"
             ? e.dots > 0
             : mark === "rest"
               ? e.rest
@@ -381,6 +393,7 @@ export function createToolbar(host, hooks) {
         s.model.tempoMap.findLast((t) => t.q <= m.q)?.bpm ?? s.model.tempo;
       host.querySelector("#toolSelection").textContent =
         tr`第 ${s.mi + 1} 小节 · 第 ${s.ni + 1} 音位 · ${s.selectedString} 弦${e.tones.length > 1 ? tr` · ${e.tones.length} 音和弦` : ""}${!tone && !e.rest ? tr(" · 输入数字添加音") : ""}${s.rangeStart != null ? tr(" · 已选范围") : ""}${e.tuplet ? tr(" · 三连音") : ""}${e.dots ? " · " + (e.dots === 2 ? tr("双附点") : tr("附点")) : ""}`;
+      if (e.grace) host.querySelector("#toolSelection").textContent += tr(" · 倚音");
     },
   };
 }

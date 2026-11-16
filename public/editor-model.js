@@ -75,18 +75,81 @@ function copyBeat(beat, edit) {
   });
 }
 export function playbackEvents(model) {
+  // Grace groups borrow a short portion of the following beat for the basic
+  // oscillator preview. Written beat positions and recording sync never change.
+  const timing = new Map();
+  for (let i = 0; i < model.notes.length; i++) {
+    if (!model.notes[i].grace) continue;
+    const group = [];
+    while (model.notes[i]?.grace) group.push(model.notes[i++]);
+    const main = model.notes[i];
+    if (!main) break;
+    const total = Math.min(main.duration / 4, group.length / 8);
+    group.forEach((beat, j) => timing.set(beat, { q: main.q + total * j / group.length, duration: total / group.length }));
+    timing.set(main, { q: main.q + total, shorten: total });
+  }
   return model.notes.flatMap((beat) =>
     beat.tones
       .filter((t) => !t.rest && !t.tieStop)
       .map((tone) => ({
         ...tone,
-        duration: model.group(tone).reduce((sum, n) => sum + n.duration, 0),
+        q: timing.get(beat)?.q ?? tone.q,
+        duration: timing.get(beat)?.duration ?? (model.group(tone).reduce((sum, n) => sum + n.duration, 0) - (timing.get(beat)?.shorten || 0)),
         voices: beat.tones.length,
       })),
-  );
+  ).filter((event) => event.duration > 0).sort((a, b) => a.q - b.q);
 }
 
 export class ScoreDocument extends BasicScoreDocument {
+  addGrace(mi, ni, string) {
+    this.requireEdit();
+    const tone = this.requireTone(mi, ni, string), n = tone.el.cloneNode(true);
+    for (const tag of ["grace", "chord", "duration", "tie", "notations", "play", "lyric", "beam", "dot", "time-modification"])
+      remove(n, tag);
+    add(n, "grace").setAttribute("slash", "yes");
+    set(n, "type", "eighth");
+    set(technical(n), "string", tone.string);
+    set(technical(n), "fret", tone.fret);
+    const beat = this.event(mi, ni);
+    beat.el.parentNode.insertBefore(n, beat.el);
+    this.refresh();
+    return ni;
+  }
+  toggleGraceSlash(mi, ni) {
+    this.requireEdit();
+    const beat = this.event(mi, ni);
+    if (!beat.grace) throw Error(tr("请先选择一个倚音"));
+    for (const tone of beat.tones) child(tone.el, "grace").setAttribute("slash", beat.graceSlash ? "no" : "yes");
+    this.refresh();
+  }
+  toggleOpenSlide(mi, ni, tag, string) {
+    this.requireEdit();
+    if (!["scoop", "plop", "doit", "falloff"].includes(tag)) throw Error(tr("无效滑音方向"));
+    const tone = this.requireTone(mi, ni, string), arts = ensure(notations(tone.el), "articulations");
+    const had = !!child(arts, tag), entry = ["scoop", "plop"].includes(tag);
+    for (const other of entry ? ["scoop", "plop"] : ["doit", "falloff"]) remove(arts, other);
+    if (!had) {
+      // An open end and a specified slide endpoint are mutually exclusive.
+      this.disconnectSlides(tone, entry ? "stop" : "start");
+      const mark = add(arts, tag);
+      mark.setAttribute("line-shape", "straight");
+      mark.setAttribute("line-type", "solid");
+    }
+    this.refresh();
+  }
+  disconnectSlides(tone, type) {
+    const tones = this.notes.flatMap((b) => b.tones), index = tones.findIndex((t) => t.el === tone.el);
+    for (const tag of ["slide", "glissando"])
+      for (const mark of all(tone.el, tag).filter((n) => n.getAttribute("type") === type)) {
+        const candidates = type === "start" ? tones.slice(index + 1) : tones.slice(0, index).reverse();
+        const number = mark.getAttribute("number") || "1";
+        for (const other of candidates) {
+          const end = all(other.el, tag).find((n) => n.getAttribute("type") === (type === "start" ? "stop" : "start") && (n.getAttribute("number") || "1") === number);
+          if (end) { end.parentNode.removeChild(end); break; }
+        }
+        mark.parentNode.removeChild(mark);
+      }
+  }
   refresh() {
     super.refresh();
     this.tempoMap = [{ q: 0, bpm: 120, seconds: 0 }];
@@ -232,6 +295,7 @@ export class ScoreDocument extends BasicScoreDocument {
   }
   split(mi, ni) {
     const e = this.event(mi, ni);
+    if (e.grace) throw Error(tr("倚音不占小节时值；可再次添加倚音"));
     if (e.tuplet) throw Error(tr("请先取消三连音组再拆分"));
     if (e.duration < 0.125) throw Error(tr("最小拆分到六十四分音符"));
     const copies = [0, 1].flatMap(() =>
@@ -326,8 +390,8 @@ export class ScoreDocument extends BasicScoreDocument {
           number = marker.getAttribute("number") || "1";
         const candidates =
           type === "start"
-            ? tones.filter((n) => n.q > event.q)
-            : tones.filter((n) => n.q < event.q).reverse();
+            ? tones.slice(tones.findIndex((n) => n.el === event.el) + 1)
+            : tones.slice(0, tones.findIndex((n) => n.el === event.el)).reverse();
         for (const e of candidates) {
           const match = all(e.el, tag).find(
             (x) =>
@@ -344,6 +408,12 @@ export class ScoreDocument extends BasicScoreDocument {
   }
   editDuration(mi, ni, type, dots = 0, mode = "replace") {
     const e = this.event(mi, ni);
+    if (e.grace) {
+      this.requireEdit();
+      for (const tone of e.tones) { writeRhythm(tone.el, type, dots); remove(tone.el, "duration"); }
+      this.refresh();
+      return;
+    }
     if (e.tuplet) throw Error(tr("三连音内部请先取消三连音，再修改时值"));
     let q;
     const copies = copyBeat(e, (n) => {
@@ -358,6 +428,7 @@ export class ScoreDocument extends BasicScoreDocument {
   }
   triplet(mi, ni, mode = "replace") {
     this.requireEdit();
+    if (this.event(mi, ni).grace) throw Error(tr("倚音不占小节时值；可再次添加倚音"));
     this.normalizeDivisions();
     const e = this.event(mi, ni);
     if (e.tuplet) {
@@ -417,7 +488,7 @@ export class ScoreDocument extends BasicScoreDocument {
       next =
         nextBeat?.tones.find((t) => t.string === e.string) ||
         (tag === "slur" ? nextBeat?.tones[0] : null);
-    if (!next || next.q <= e.q || e.rest || next.rest)
+    if (!next || (endIndex ?? index + 1) <= index || e.rest || next.rest)
       throw Error(tr("请选两个先后相邻的音符，或用 Shift 选择终点"));
     if (
       ["hammer-on", "pull-off", "slide"].includes(tag) &&
@@ -449,6 +520,10 @@ export class ScoreDocument extends BasicScoreDocument {
         }
       }
     } else {
+      if (tag === "slide") {
+        for (const name of ["doit", "falloff"]) remove(child(child(e.el, "notations"), "articulations"), name);
+        for (const name of ["scoop", "plop"]) remove(child(child(next.el, "notations"), "articulations"), name);
+      }
       const used = new Set(
         all(this.part, tag).map((x) => x.getAttribute("number")),
       );
@@ -728,7 +803,7 @@ export class ScoreDocument extends BasicScoreDocument {
           m.el.insertBefore(r, child(m.el, "barline") || null);
       } else if (length < m.actualLength) {
         const affected = m.notes.filter(
-          (e) => e.q - m.q + e.duration > length + 1e-6,
+          (e) => e.q - m.q + e.duration > length + 1e-6 || (e.grace && e.q - m.q >= length - 1e-6),
         );
         if (!trim && affected.some((e) => !e.rest))
           throw Error(tr("缩短拍号会截去音符；勾选“截去超出内容”或先整理小节"));
@@ -806,9 +881,22 @@ export function applyDisplaySettings(score, model) {
     for (const e of model.notes) {
     const beat = score.tracks[part.index]?.staves[0]?.bars[e.mi]?.voices[0]?.beats[e.ni];
     if (!beat) continue;
+    // The importer otherwise normalizes all grace display values to an eighth.
+    if (e.grace) { beat.duration = 4 / NOTE_VALUES[e.type]; beat.dots = e.dots; }
     const marks = e.tones.map((t) => model.marks(e.mi, e.ni, t.string).tags);
     beat.slap = marks.some((tags) => tags.has("slap"));
     beat.pop = marks.some((tags) => tags.has("pop"));
+    // alphaTab's MusicXML importer ignores these standard articulations.
+    // Map to its native guitar slide glyphs for both editor and PDF rendering.
+    for (const tone of e.tones) {
+      const note = beat.notes.find((n) => n.string === model.tuning.length - tone.string + 1);
+      if (!note) continue;
+      const tags = model.marks(e.mi, e.ni, tone.string).tags;
+      if (tags.has("scoop")) note.slideInType = 1;
+      else if (tags.has("plop")) note.slideInType = 2;
+      if (tags.has("doit")) note.slideOutType = 3;
+      else if (tags.has("falloff")) note.slideOutType = 4;
+    }
     }
   }
   model.selectPart(activePart);

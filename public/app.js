@@ -672,6 +672,7 @@ function updateSelection() {
   const tone = model.tone(mi, ni, selectedString);
   $("selectionLabel").textContent =
     tr`第 ${mi + 1} 小节 · 第 ${ni + 1} 音位${e.tones.length > 1 ? tr` · ${e.tones.length} 音和弦` : ""}${e.rest ? tr(" · 休止符") : tone ? tr` · ${tone.string}弦 ${tone.dead ? "X" : tone.fret + tr("品")} · ${pitchName(tone.midi)}` : tr` · ${selectedString}弦未填音，输入数字添加`}`;
+  if (e.grace) $("selectionLabel").textContent += tr(" · 倚音");
   for (const [i, b] of [...$("barNav").children].entries())
     b.className =
       i === mi
@@ -793,11 +794,12 @@ function moveCursor() {
   let noteX = b.onNotesX;
   if (smooth) {
     const measure = model.measures[mi];
-    const points = beats.flatMap((beat) => {
+    const points = beats.flatMap((beat, i) => {
+      if (beat.graceType) return [];
       const box = tabLayout(beat)?.bounds;
-      return box ? [{ q: measure.q + beat.playbackStart / 960, x: box.onNotesX }] : [];
+      return box ? [{ q: model.editable ? measure.notes[i]?.q ?? measure.q : measure.q + beat.playbackStart / 960, x: box.onNotesX }] : [];
     }).filter((point, i, all) => i === 0 || point.q > all[i - 1].q);
-    const nextBeat = renderedScore.tracks[model.partIndex]?.staves[0]?.bars[mi + 1]?.voices[0]?.beats[0];
+    const nextBeat = renderedScore.tracks[model.partIndex]?.staves[0]?.bars[mi + 1]?.voices[0]?.beats.find((beat) => !beat.graceType);
     const next = nextBeat && tabLayout(nextBeat)?.bounds;
     const endX = next && Math.abs(next.barBounds.masterBarBounds.visualBounds.y - area.y) < 1
       ? next.onNotesX : b.barBounds.visualBounds.x + b.barBounds.visualBounds.w;
@@ -1679,6 +1681,9 @@ function setup() {
     position: (m, n) => {
       mi = m;
       ni = n;
+      rangeStart = null;
+      keyDigits = "";
+      keyTime = 0;
     },
   });
   $("scoreViewport").addEventListener("focus", () => {
@@ -2212,6 +2217,10 @@ function setup() {
       return;
     }
     const shortcuts = {
+      g: () => {
+        ni = model.addGrace(mi, ni, selectedString);
+        rangeStart = null; keyDigits = ""; keyTime = 0;
+      },
       ".": () => model.toggleDots(mi, ni, toolbar.mode()),
       t: () => model.toggleTie(mi, ni, selectedString),
       x: () => model.toggleDead(mi, ni, selectedString),

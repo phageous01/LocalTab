@@ -102,3 +102,28 @@ audio and print behavior still need browser checks.
 
 在内置浏览器中使用真实的 **348 首谱库**验证：`TOE` 匹配六首，名字正反序、零结果、清空搜索、保持当前谱子、切换英文时保留输入、刷新后保留创建时间正序均正常，并通过截图检查侧栏布局。没有编辑现有乐谱。
 重启后，各本地服务均返回带两个时间字段的 348 条记录；保存行为由隔离的 HTTP 测试验证，浏览器验证未向用户乐谱写入修改。
+
+## Grace notes and open slides / 倚音与无指定端点滑音
+
+**77 JavaScript tests and 28 Python HTTP/publishing tests passed.** Twelve new
+regressions cover grace-note/chord editing and deletion, slashed/unslashed rendering,
+display duration, unchanged written beats/tempo/synchronization, positive preview
+durations, same-position hammer-ons, ties across grace groups, all four standard
+open-slide articulations, per-string rendering and conflicting slide endpoints.
+Clipboard checks include grace-only fragments, trailing graces before a preserved
+tail, chords and paired techniques, cross-bar open-slide endpoints and meter trimming.
+Unsupported explicit-time/trailing grace structures remain unmodified and view-only.
+
+An isolated four-measure original study was exercised in the in-app browser:
+toolbar and G entry, immediate fret input, slash toggle, Delete, undo, saving and
+reopening, combined slide-in/out and English/Chinese labels. Saved XML contained
+grace notes without duration elements and the standard open-slide articulations.
+Editor and A4 print-view screenshots were visually checked. The print view used
+the same display mapping as PDF export; no public score was published and no user
+score was modified. These checks do not establish another editor's rendering or
+realistic synthesized guitar techniques.
+
+**77 项 JavaScript 与 28 项 Python HTTP/发布测试通过。** 新增 12 项回归验证，涵盖倚音／和弦的编辑删除、斜线与显示时值、谱面拍位／速度／同步不变、合成预览的正时长、同拍位击弦、跨倚音组延音、四种标准滑音、按弦渲染和滑音端点冲突。
+复制粘贴覆盖纯倚音片段、以倚音结尾并接回原音尾部、和弦与连线、跨小节滑音端点及拍号截短。不支持的额外时间／小节末尾倚音结构保持查看模式且不重写。
+
+在隔离谱库的原创四小节测试谱上，实际验证了工具栏／G 添加、立即输入品位、斜线切换、删除、撤销、保存重开、同音滑入加滑出及中英文标签。保存后的 XML 中倚音没有 duration 元素，滑音为标准奏法元素；通过截图检查编辑器及 A4 打印视图，后者与 PDF 导出共用显示映射。没有发布公开曲谱或修改用户乐谱；本次验证不代表其他软件的排版一致，也不保证真实的吉他合成奏法音色。

@@ -19,6 +19,7 @@ language choice; score titles, instrument names and notation text stay as writte
 - Durations, ties, slurs, triplets, hammer-ons, pull-offs, slides, bends, dead notes,
   palm mute, dynamics, articulation and text/tone annotations.
 - Add/remove measures; edit time signatures and tempo.
+- Grace notes and chords; open-ended slides into/out of a note in either direction.
 - Multiple MP3 recordings, each with independent synchronization; copy points between recordings.
 - Playback from **0.50× to 1.00× in 0.01 steps**, with browser pitch preservation.
 - Horizontal scrolling by default; choose a smooth playhead or note-by-note following.
@@ -150,6 +151,36 @@ remembers your choice. Zoom changes only the editor view, not exported scores or
 - Copy between scores preserves string and fret positions, recalculating pitches for the destination tuning. Pasting to an instrument missing a required string is refused without changing the score.
 - Keyboard copy/paste works over ordinary LAN HTTP. If the browser blocks system clipboard access from buttons, the two buttons still work within the page; use keyboard shortcuts across windows. The Paste button uses the last fragment copied in this page, while keyboard paste reads the system clipboard.
 
+### Grace notes and open-ended slides
+
+Select a pitched note and its string, then click **Add grace note** under **Notes**
+or press **G**. A small note is inserted immediately before it and selected for
+fret entry. Repeat to build a group; switch strings to add a grace chord. The
+duration buttons change the grace note's displayed value without consuming measure
+time. **Grace slash** toggles slashed/unslashed notation. Use **H / P / S** for
+hammer-ons, pull-offs or slurs to the following note. Delete removes the selected
+grace tone; **R** removes the entire grace chord. Copy/paste and undo/redo retain
+grace notes, including grace-only fragments pasted before a destination note.
+
+Under **TAB techniques**, choose **Slide in from below**, **Slide in from above**,
+**Slide out down** or **Slide out up**. These apply to the selected string, require
+no second fret and toggle off when clicked again. One incoming and one outgoing
+slide can coexist. Choosing an open slide replaces a contradictory paired slide
+endpoint; the existing **Slide** button still connects two specified notes.
+
+MusicXML stores grace notes with [`<grace>`](https://www.w3.org/2021/06/musicxml40/musicxml-reference/elements/grace/)
+and no `<duration>`. Open slides use standard `scoop` (in from below), `plop` (in from
+above), `falloff` (out down) and `doit` (out up) articulations with straight lines.
+They survive save/export and appear in the editor and print/PDF view; other
+applications may render these standard articulations differently.
+
+Grace notes do not move later written beats or MP3 synchronization points. The basic
+synth preview approximates each grace group by borrowing a short portion of the
+following note; slash style does not change that approximation. Open slide marks do
+not synthesize a realistic slide. Imported grace notes that add explicit time
+(`make-time`), carry ties/tuplets, or trail a measure remain view-only and are
+preserved on export.
+
 ### Keyboard and toolbar
 
 Click TAB or the toolbar first to focus it. Duration editing offers protected and
@@ -165,6 +196,7 @@ replacement modes; protected mode refuses to overwrite following notes.
 | `.` / `Alt+T` | Augmentation dots / triplet group |
 | `T` / `S` | Tie / slur |
 | `H` / `P` / `/` | Hammer-on / pull-off / slide |
+| `G` | Add a grace note before the selected note |
 | `X` | Dead note on selected string |
 | `Delete` / `Backspace` | Remove selected string's note, preserving other chord tones |
 | `R` | Convert the whole position to/from a rest |
