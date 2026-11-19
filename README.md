@@ -125,7 +125,7 @@ it does not run this Python service.
    Type two digits promptly for frets 10–36. To form a chord, stay at the same
    position, switch strings, and enter more frets. Chord tones share a duration.
    Select durations and techniques in the toolbar.
-   Each fret entry plays a short pitch preview, including chord tones and grace
+   Each fret entry plays a roughly 0.8-second pitch preview, including chord tones and grace
    notes, using the active instrument's tuning. A second digit immediately
    replaces the first preview with the final fret's pitch. Preview works with
    either recording or synth selected and does not start playback or move the

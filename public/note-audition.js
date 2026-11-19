@@ -30,7 +30,7 @@ export class NoteAudition {
     if (generation !== this.generation) return false;
 
     const oscillator = context.createOscillator(), gain = context.createGain();
-    const now = context.currentTime, duration = dead ? 0.07 : 0.35;
+    const now = context.currentTime, duration = dead ? 0.07 : 0.8;
     oscillator.type = dead ? "square" : "triangle";
     oscillator.frequency.value = dead ? 90 : 440 * 2 ** ((midi - 69) / 12);
     gain.gain.setValueAtTime(0, now);
