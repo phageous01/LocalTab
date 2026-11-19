@@ -11,6 +11,7 @@ import { setupPublishing } from "./publish.js";
 import { copyNotes, pasteNotes } from "./clipboard.js";
 import { playheadX, followScrollPosition } from "./playhead.js";
 import { PlaybackResume } from "./playback-resume.js";
+import { NoteAudition } from "./note-audition.js";
 import { filterProjects, librarySortPreference, LIBRARY_PREFERENCE_KEY } from "./library.js";
 import {
   RecordingTimeMap,
@@ -62,6 +63,7 @@ let peaks = [],
   keyTime = 0;
 const audio = $("audio");
 const playbackResume = new PlaybackResume();
+const noteAudition = new NoteAudition(getContext);
 let startingPlayback = false, playRequest = 0;
 let toolbar,
   selectedString = 1,
@@ -363,7 +365,7 @@ function snapshot() {
     practiceStart: playbackResume.startMeasure,
   };
 }
-function mutate(fn, { render = true, sync = false } = {}) {
+function mutate(fn, { render = true, sync = false, audition = false } = {}) {
   if (!model) return;
   if (syncDraft && !sync) {
     toast(tr("请先保存或取消当前同步点，再修改乐谱或其他同步点。"));
@@ -384,6 +386,10 @@ function mutate(fn, { render = true, sync = false } = {}) {
     updateUI();
     if (render) renderScore();
     else drawWave();
+    if (audition) {
+      void noteAudition.play(model.tone(mi, ni, selectedString)).catch((e) =>
+        toast(tr("音符试听不可用：") + e.message, true));
+    }
     return true;
   } catch (e) {
     model = new ScoreDocument(before.xml, before.activePartId);
@@ -1044,6 +1050,7 @@ async function play(source = "paused") {
       return;
     }
     startingPlayback = true;
+    noteAudition.stop();
     followedBar = -1;
     followScrollLeft = null;
     smoothScrollPosition = null;
@@ -1079,6 +1086,7 @@ async function play(source = "paused") {
   }
 }
 function pause() {
+  noteAudition.stop();
   const wasPlaying = playing;
   if (wasPlaying) cursorQ = currentQ();
   playRequest++;
@@ -2240,7 +2248,7 @@ function setup() {
       keyDigits = now - keyTime < 700 ? keyDigits + e.key : e.key;
       keyTime = now;
       if (Number(keyDigits) > 36) keyDigits = e.key;
-      mutate(() => model.setFret(mi, ni, selectedString, Number(keyDigits)));
+      mutate(() => model.setFret(mi, ni, selectedString, Number(keyDigits)), { audition: true });
       return;
     }
     const shortcuts = {
@@ -2260,7 +2268,7 @@ function setup() {
     const action = shortcuts[e.key.toLowerCase()];
     if (action) {
       e.preventDefault();
-      mutate(action);
+      mutate(action, { audition: e.key.toLowerCase() === "g" });
     }
     if (["Delete", "Backspace"].includes(e.key)) {
       e.preventDefault();

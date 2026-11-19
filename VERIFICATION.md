@@ -154,3 +154,28 @@ this test used WAV through the recording path, not a separate MP3 decoding audit
 播放按钮获得键盘焦点时也一致；合成预览也从 13 重播。同步点窗口保留了暂停时的精确小数
 时间戳，切换中英文后起点与当前小节不变。截图检查了 13 的金色起点标记和 23 的暂停位置。
 没有编辑用户乐谱；录音测试使用 WAV，未额外审计 MP3 解码。
+
+## Note-entry audition / 输入音符试听
+
+**88 JavaScript tests and 28 Python HTTP/publishing tests passed.** Five new
+regressions cover selected-string MIDI pitch, custom bass tuning and six-string
+guitar, grace notes, rapid two-digit replacement, voice cleanup, cancellation
+during audio unlock, rests/dead notes and audio failures without score changes.
+
+An isolated original study was edited in the in-app browser with a temporary
+Web Audio probe. Actual oscillator starts, frequencies, nonzero audio samples
+and ended events were observed for single notes, a two-digit chord tone, toolbar
+and keyboard grace insertion, and changing its fret. Deletion created no sound.
+Feedback worked with a local recording selected and with synth preview at 0.50×,
+without starting transport or changing the practice marker. The local recording
+fixture was WAV; this was not a separate MP3-decoder test or a physical-speaker
+listening test. The probe is test-only and is not shipped in the app.
+
+**88 项 JavaScript 与 28 项 Python HTTP/发布测试通过。** 新增 5 项回归验证覆盖
+当前弦的 MIDI 音高、自定义贝斯调弦与六弦吉他、倚音、两位数品位快速替换、音频节点释放、
+等待音频启动时的取消、休止／闷音及音频失败时不改动乐谱。
+
+在隔离原创测试谱中，通过临时 Web Audio 检测确认了实际振荡器启动、频率、非零音频采样
+和结束事件，涵盖单音、两位数和弦音、工具栏／键盘添加倚音及修改品位。删除没有产生新音。
+选择本地录音、选择合成预览并设为 0.50× 时均可试听，整曲保持暂停且练习起点不变。
+测试录音为 WAV，本轮没有单独测试 MP3 解码或物理扬声器听感；检测面板仅用于测试，不随应用发布。

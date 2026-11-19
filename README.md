@@ -125,6 +125,11 @@ it does not run this Python service.
    Type two digits promptly for frets 10–36. To form a chord, stay at the same
    position, switch strings, and enter more frets. Chord tones share a duration.
    Select durations and techniques in the toolbar.
+   Each fret entry plays a short pitch preview, including chord tones and grace
+   notes, using the active instrument's tuning. A second digit immediately
+   replaces the first preview with the final fret's pitch. Preview works with
+   either recording or synth selected and does not start playback or move the
+   practice start. It uses the same basic synthesized tone as the score preview.
 6. **Space** pauses or restarts from your practice measure. Click **Play** to
    resume from the paused measure instead. Set **Practice speed**, for example 0.75. Pause
    whenever you want to edit. Choose **Smooth follow** for continuous scrolling or

@@ -55,6 +55,7 @@ export const messages = {
   "请先保存或取消同步点，录音时间已固定。": "Save or cancel the sync point first. The recording time is held.",
   "暂停": "Pause",
   "无法播放：": "Unable to play: ",
+  "音符试听不可用：": "Note preview unavailable: ",
   "播放": "Play",
   "波形预览未生成，仍可尝试播放音频。": "Waveform preview is unavailable. You can still try playing the audio.",
   "尚未校准 · 按乐谱速度预估，请添加第一个同步点": "Not synced · Following score tempo; add your first sync point",

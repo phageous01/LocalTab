@@ -48,9 +48,9 @@ export function createToolbar(host, hooks) {
     panel(group).append(b);
     return b;
   }
-  const exec = (fn) => {
+  const exec = (fn, options) => {
     const s = state();
-    hooks.run(() => fn(s.model, s.mi, s.ni, s.selectedString));
+    hooks.run(() => fn(s.model, s.mi, s.ni, s.selectedString), options);
   };
   const pair = (tag) => {
     const s = state(),
@@ -147,7 +147,7 @@ export function createToolbar(host, hooks) {
   );
   btn("notes", "添加倚音", "♪⁺", () => exec((m, a, b, string) => {
     hooks.position(a, m.addGrace(a, b, string));
-  }), "在当前音前添加倚音，再输入品位 · G");
+  }, { audition: true }), "在当前音前添加倚音，再输入品位 · G");
   btn("notes", "倚音斜线", "♪̸", () => exec((m, a, b) => m.toggleGraceSlash(a, b)),
     "切换带斜线 / 不带斜线的倚音", "grace-slash");
   const modeLabel = document.createElement("label");
